@@ -2,5 +2,9 @@
   "name": "dcmtk.js",
   "version": "1.0.0",
   "main": "index.js",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "dcmjs-dimse": "^0.0.11",
+    "xml2js": "^0.4.23"
+  }
 }

@@ -2,23 +2,19 @@ const {exec} = require('child_process')
 const fs = require('fs/promises')
 const path = require('path')
 const parseString = require('xml2js').parseString
-const DCMTK_PATH = process.env.DCMTK_PATH || '/usr/local/bin'
-const os = require('os');
-const isWindows = os.platform() === 'win32';
 
-async function dcm2xml({srcPath, dstPath, flags = [], asJson, writeJson}) {
-  srcPath = path.normalize(srcPath)
-  dstPath = dstPath || path.dirname(srcPath)
-  const inFileName = path.basename(srcPath)
-  console.log('inFileName', inFileName)
-  const xmlPath = path.normalize(`${dstPath}/${inFileName}.xml`)
-  const jsonPath = path.normalize(`${dstPath}/${inFileName}.json`)
+
+async function dcm2xml({dcmfileIn, xmlfileOut, flags = [], asJson, writeJson}) {
+  dcmfileIn = path.normalize(dcmfileIn)
+  xmlfileOut = xmlfileOut || path.dirname(dcmfileIn)
+  const inFileName = path.basename(dcmfileIn)
+
+  const xmlPath = path.normalize(`${xmlfileOut}/${inFileName}.xml`)
+  const jsonPath = path.normalize(`${xmlfileOut}/${inFileName}.json`)
 
   return new Promise((resolve, reject) => {
     let commandFlags = flags.join(' ')
-    const binPath = path.normalize(`${DCMTK_PATH}/dcm2xml${isWindows ? '.exe': ''}`)
-    // let command = `${DCMTK_PATH}/dcm2xml --verbose ${commandFlags} "${srcPath}" "${xmlPath}"`
-    let command = `${binPath} --verbose ${commandFlags} "${srcPath}" "${xmlPath}"`
+    let command = `${process.env.DCMTK_DCM2XML} --verbose --use-xml-namespace --write-element-name ${commandFlags} "${dcmfileIn}" "${xmlPath}"`
     exec(command, async (error, stdout, stderr) => {
         if (error) {
           console.error(error)
