@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "dcmjs-dimse": "^0.0.11",
+    "dcmjs-dimse": "^0.0.12",
     "xml2js": "^0.4.23"
   }
 }
