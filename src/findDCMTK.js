@@ -7,6 +7,7 @@ const isWindows = process.platform === 'win32'
 
 const DCMTK_KNOW_LOCATIONS = [
     '/dcmtk/usr/local/bin',
+    '/usr/local/bin',
     'C:\\ProgramData\\chocolatey\\bin'
 ]
 
