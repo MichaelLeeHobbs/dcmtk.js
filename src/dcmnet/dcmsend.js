@@ -31,10 +31,17 @@ const parseResults = (result, command) => {
 
 const execute = async (command) => {
   return new Promise((resolve, reject) => {
-    exec(command, (err, stdout, stderr) => err ?
-      reject({message: `FAILED: ${stdout}\n${stderr}`.trim(), command}) :
-      resolve(parseResults(stdout, command))
-    )
+    exec(command, (err, stdout, stderr) => {
+      if (err) {
+        reject({message: `FAILED: ${stdout}\n${stderr}`.trim(), command})
+      } else {
+        if (stdout > '') {
+          resolve(parseResults(stdout, command))
+        } else {
+          resolve(parseResults(stderr, command))
+        }
+      }
+    })
   })
 }
 
@@ -81,7 +88,7 @@ async function dcmsend(options) {
   //   +f    --read-file
   //           read file format or data set
   //
-  if (options.readFile) command.push(`--read-file ${options.readFile}`)
+  if (options.readFile) command.push(`--read-file`)
 
   //   +fo   --read-file-only
   //           read file format only (default)

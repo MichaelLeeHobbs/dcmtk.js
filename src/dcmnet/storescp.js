@@ -1,5 +1,5 @@
 const {spawn, exec} = require('child_process')
-
+const events = require('events')
 
 // These comments are in honor of Pacmano - https://mirthconnect.slack.com/archives/DKE0F4P2N
 const execute = async (command) => {
@@ -11,32 +11,71 @@ const execute = async (command) => {
   })
 }
 const start = (command) => {
-  console.log(`Start: ${process.env.DCMTK_STORESCP} ${command.join(' ')}`)
-  const child = spawn(
-    process.env.DCMTK_STORESCP,
-    command
-  )
-  child.stdout.on('data', (data) => console.log(`stdout data: ${data}`))
-  child.stderr.on('data', (data) => console.log(`stderr data: ${data}`))
-  child.on('close', (exitCode, signal) => {
-    console.log(`close exitCode: ${exitCode}, signal: ${signal}`)
-  })
-  child.on('exit', (exitCode, signal) => {
-    console.log(`close exitCode: ${exitCode}, signal: ${signal}`)
-  })
-  child.on('disconnect', () => {
-    console.log(`disconnect`)
-  })
-  child.on('error', (error) => {
-    console.error(`error`, error)
-  })
-  child.on('message', (message, sendHandle) => {
-    console.log(`message`, message, sendHandle)
-  })
+  class _Dcmrecv extends events {
+    constructor() {
+      super()
+
+      this._stdOutData = ''
+      this._stdOutDataHandler = -1
+      this._stdErrData = ''
+      this._stdErrDataHandler = -1
+    }
+
+    _handleStdOut(data = '') {
+      clearTimeout(this._stdOutDataHandler)
+      this._stdOutData += data
+      this._stdOutDataHandler = setTimeout(() => {
+        console.log(`----------------------- stdout start -----------------------`)
+        console.log(this._stdOutData)
+        console.log(`----------------------- stdout end -----------------------`)
+        this._stdOutData = ''
+      }, 100)
+    }
+
+    _handleStdErr(data = '') {
+      clearTimeout(this._stdErrDataHandler)
+      this._stdErrData += data
+      this._stdErrDataHandler = setTimeout(() => {
+        console.log(`----------------------- stderr start -----------------------`)
+        console.log(this._stdErrData)
+        console.log(`----------------------- stderr end -----------------------`)
+        this._stdErrData = ''
+      }, 100)
+    }
+
+    shutdown() {
+      // shutdown nicely
+      let result = this._child.kill()
+      if (!result) {
+        // shutdown not so nicely
+        result = this._child.kill('SIGKILL')
+      }
+      return result
+    }
+
+    start() {
+      const child = spawn(process.env.DCMTK_STORESCP, command)
+      child.stdout.on('data', (data) => this._handleStdOut(data))
+      child.stderr.on('data', (data) => this._handleStdErr(data))
+      child.on('close', (exitCode, signal) => this.emit('close', exitCode, signal))
+      child.on('exit', (exitCode, signal) => this.emit('exit', exitCode, signal))
+      child.on('disconnect', () => this.emit('disconnect'))
+      child.on('error', (error) => this.emit('error', error))
+      child.on('message', (message, sendHandle) => {
+        console.log(`message`, message, sendHandle)
+        this.emit(`message`, message, sendHandle)
+      })
+      this._child = child
+    }
+  }
+
+  return new _Dcmrecv()
 }
 
 
-async function storescp({port = 104, options = {}}) {
+function storescp({port = 104, options = {}}) {
+  const emitter = new events.EventEmitter()
+
   // let command = [process.env.DCMTK_STORESCP, port, '--debug']
   let command = [port, '--debug']
 
@@ -653,7 +692,7 @@ async function storescp({port = 104, options = {}}) {
   // command.push(`--exec-on-reception`)
   // command.push(`"echo 'p:#p f:#f a:#a c:#c r:#r'"`)
   // return execute(command.join(' '))
-  return start(command)
+  return start(command, emitter)
 }
 
 module.exports = storescp

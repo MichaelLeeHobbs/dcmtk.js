@@ -1,5 +1,5 @@
-const findDCMTK = require('../../findDCMTK')
-const echoscu = require('../../dcmnet/echoscu')
+const findDCMTK = require('../../../src/findDCMTK')
+const echoscu = require('../../../src/dcmnet/echoscu')
 
 
 const main = async () => {

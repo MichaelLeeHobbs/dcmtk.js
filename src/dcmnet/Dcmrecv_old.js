@@ -7,7 +7,7 @@ const events = require('events')
 const {DCMRECV_PDU, DCMRECV_ACSE_TIMEOUT, DCMTK_PATH} = require('../../config')
 const fs = require('fs-extra')
 
-class Dcmrecv {
+class Dcmrecv_old {
   constructor(dcmtkPath, config, port, storePath, routerId) {
     this._dcmtkPath = dcmtkPath
     this._storePath = storePath
@@ -58,23 +58,23 @@ class Dcmrecv {
     this._child.stdout.on('data', (data) => this._handleData(data, 'stdout'))
     this._child.stderr.on('data', (data) => this._handleData(data, 'stderr'))
     this._child.on('close', (exitCode, signal) => {
-      this._emitter.emit(Dcmrecv.events.DCMRECV_CLOSE, {eventId: this.generateEventId(), message: `DCMRECV_CLOSE - exitCode: ${exitCode}  signal: ${signal}`})
+      this._emitter.emit(Dcmrecv_old.events.DCMRECV_CLOSE, {eventId: this.generateEventId(), message: `DCMRECV_CLOSE - exitCode: ${exitCode}  signal: ${signal}`})
       this.stop()
     })
     this._child.on('exit', (exitCode, signal) => {
-      this._emitter.emit(Dcmrecv.events.DCMRECV_EXIT, {eventId: this.generateEventId(), message: `DCMRECV_EXIT - exitCode: ${exitCode}  signal: ${signal}`})
+      this._emitter.emit(Dcmrecv_old.events.DCMRECV_EXIT, {eventId: this.generateEventId(), message: `DCMRECV_EXIT - exitCode: ${exitCode}  signal: ${signal}`})
       this.stop()
     })
     this._child.on('disconnect', () => {
-      this._emitter.emit(Dcmrecv.events.DCMRECV_DISCONNECT, {eventId: this.generateEventId(), message: `DCMRECV_DISCONNECT`})
+      this._emitter.emit(Dcmrecv_old.events.DCMRECV_DISCONNECT, {eventId: this.generateEventId(), message: `DCMRECV_DISCONNECT`})
       this.stop()
     })
     this._child.on('error', (error) => {
-      this._emitter.emit(Dcmrecv.events.DCMRECV_ERROR, {eventId: this.generateEventId(), message: `DCMRECV_ERROR - ${error.message}`})
+      this._emitter.emit(Dcmrecv_old.events.DCMRECV_ERROR, {eventId: this.generateEventId(), message: `DCMRECV_ERROR - ${error.message}`})
       this.stop(error)
     })
     this._child.on('message', (message, sendHandle) => {
-      this._emitter.emit(Dcmrecv.events.DCMRECV_MESSAGE, {eventId: this.generateEventId(), message})
+      this._emitter.emit(Dcmrecv_old.events.DCMRECV_MESSAGE, {eventId: this.generateEventId(), message})
     })
   }
 
@@ -102,38 +102,38 @@ class Dcmrecv {
     if (typeof text !== 'string') text = JSON.stringify(text)
     if (text.trim() === '') return
     let eventId = this.generateEventId()
-    let eventResult = Object.keys(Dcmrecv.events).some(key => {
-      let event = dicomEvents[Dcmrecv.events[key]]
+    let eventResult = Object.keys(Dcmrecv_old.events).some(key => {
+      let event = dicomEvents[Dcmrecv_old.events[key]]
       if (event && text.indexOf(event.match) > -1) {
         let eventData = (event.transformer) ? event.transformer(text) : {}
         eventData.message = text
         eventData.event = key
         eventData.eventId = eventId
 
-        if (Dcmrecv.events[key] === Dcmrecv.events.ASSOCIATION_RECEIVED) {
+        if (Dcmrecv_old.events[key] === Dcmrecv_old.events.ASSOCIATION_RECEIVED) {
           this._callingAET = eventData.callingAET
           this._calledAET = eventData.calledAET
-          this._emitter.emit(Dcmrecv.events[key], eventData)
-        } else if (Dcmrecv.events[key] === Dcmrecv.events.STORED_FILE) {
+          this._emitter.emit(Dcmrecv_old.events[key], eventData)
+        } else if (Dcmrecv_old.events[key] === Dcmrecv_old.events.STORED_FILE) {
           let {callingAET, calledAET} = this
           dcm2json(DCMTK_PATH, eventData.file)
             .then(async (res) => {
 
               eventData.dicom = new DicomObject({dcmtkPath: DCMTK_PATH, eventId, json: res.json, inFilePath: eventData.file, callingAET, calledAET})
-              this._emitter.emit(Dcmrecv.events[key], eventData)
+              this._emitter.emit(Dcmrecv_old.events[key], eventData)
             })
             .catch(err => {
               console.log('dcm2json', err)
-              this._emitter.emit(Dcmrecv.events[err.event], {message: err.message, error: err.err, stack: err.stack})
+              this._emitter.emit(Dcmrecv_old.events[err.event], {message: err.message, error: err.err, stack: err.stack})
               // todo emit error
             })
         } else {
-          this._emitter.emit(Dcmrecv.events[key], eventData)
+          this._emitter.emit(Dcmrecv_old.events[key], eventData)
         }
         return true
       }
     })
-    if (!eventResult) this._emitter.emit(Dcmrecv.events.DCMRECV_UNKNOWN, {message: text, event: Dcmrecv.events.DCMRECV_UNKNOWN, eventId})
+    if (!eventResult) this._emitter.emit(Dcmrecv_old.events.DCMRECV_UNKNOWN, {message: text, event: Dcmrecv_old.events.DCMRECV_UNKNOWN, eventId})
   }
 
   _handleData(data) {
@@ -157,7 +157,7 @@ class Dcmrecv {
   }
 }
 
-Dcmrecv.events = {
+Dcmrecv_old.events = {
   CONFIGURING: Symbol('CONFIGURING'),
   LISTENING: Symbol('LISTENING'),
   ASSOCIATION_RECEIVED: Symbol('ASSOCIATION_RECEIVED'),
@@ -187,10 +187,10 @@ Dcmrecv.events = {
 
 const dicomEvents = {
   // configuring service class provider ...
-  [Dcmrecv.events.CONFIGURING]: {match: 'configuring'},
-  [Dcmrecv.events.LISTENING]: {match: 'listening'},
+  [Dcmrecv_old.events.CONFIGURING]: {match: 'configuring'},
+  [Dcmrecv_old.events.LISTENING]: {match: 'listening'},
   // Association Received 10: DCMSEND -> TRG
-  [Dcmrecv.events.ASSOCIATION_RECEIVED]: {
+  [Dcmrecv_old.events.ASSOCIATION_RECEIVED]: {
     match: 'Association Received',
     transformer: (text) => {
       let matches = /Association Received .*: (.*) -> (.*)/.exec(text) || []
@@ -198,36 +198,36 @@ const dicomEvents = {
     }
   },
   //Association Acknowledged (Max Send PDV: 16372)
-  [Dcmrecv.events.ASSOCIATION_ACKNOWLEDGED]: {match: 'Association Acknowledged'},
+  [Dcmrecv_old.events.ASSOCIATION_ACKNOWLEDGED]: {match: 'Association Acknowledged'},
   // Received Association Release Request
-  [Dcmrecv.events.ASSOCIATION_RELEASE]: {match: 'Received Association Release Request'},
-  [Dcmrecv.events.ASSOCIATION_ABORT]: {match: 'Received Association Abort Request'},
+  [Dcmrecv_old.events.ASSOCIATION_RELEASE]: {match: 'Received Association Release Request'},
+  [Dcmrecv_old.events.ASSOCIATION_ABORT]: {match: 'Received Association Abort Request'},
   // Received C-STORE Request (MsgID 1)
-  [Dcmrecv.events.C_STORE_REQUEST]: {match: 'Received C-STORE'},
-  [Dcmrecv.events.C_STORE_SUCCESS]: {match: 'Sending C-STORE Response (Success)'},
+  [Dcmrecv_old.events.C_STORE_REQUEST]: {match: 'Received C-STORE'},
+  [Dcmrecv_old.events.C_STORE_SUCCESS]: {match: 'Sending C-STORE Response (Success)'},
   // Stored received object to file: .\data\2015\12\07\CR_5d4d8cf472ed5522.dcm
-  [Dcmrecv.events.STORED_FILE]: {
+  [Dcmrecv_old.events.STORED_FILE]: {
     match: 'Stored received object',
     transformer: (text) => ({text, file: text.replace('I: Stored received object to file: ', '')})
   },
-  [Dcmrecv.events.DCMRECV_FILE_EXIST]: {match: 'file already exists'},
-  [Dcmrecv.events.DCMRECV_REFUSING_ASSOCIATION_BAD_APPLICATION_CONTEXT]: {match: 'Refusing Association (bad application context)'},
-  [Dcmrecv.events.DCMRECV_READ_PDV_FAILED]: {match: 'DIMSE Read PDV failed'},
-  [Dcmrecv.events.DCMRECV_DUL_NETWORK_CLOSED]: {match: 'DUL network closed'},
-  [Dcmrecv.events.DCMRECV_UNABLE_TO_RECEIVE_CSTORE]: {match: 'Unable to receive C-STORE'},
-  [Dcmrecv.events.DCMRECV_UNKNOWN_TYPE]: {match: 'with VR UN and undefined length'},
-  // [Dcmrecv.events.STOPPED]: {},
+  [Dcmrecv_old.events.DCMRECV_FILE_EXIST]: {match: 'file already exists'},
+  [Dcmrecv_old.events.DCMRECV_REFUSING_ASSOCIATION_BAD_APPLICATION_CONTEXT]: {match: 'Refusing Association (bad application context)'},
+  [Dcmrecv_old.events.DCMRECV_READ_PDV_FAILED]: {match: 'DIMSE Read PDV failed'},
+  [Dcmrecv_old.events.DCMRECV_DUL_NETWORK_CLOSED]: {match: 'DUL network closed'},
+  [Dcmrecv_old.events.DCMRECV_UNABLE_TO_RECEIVE_CSTORE]: {match: 'Unable to receive C-STORE'},
+  [Dcmrecv_old.events.DCMRECV_UNKNOWN_TYPE]: {match: 'with VR UN and undefined length'},
+  // [Dcmrecv_old.events.STOPPED]: {},
   // cannot start SCP and listen on port 104: TCP Initialization Error: Only one usage of each socket address (protocol/network address/port) is normally permitted.
   // child process exited with code 64
-  [Dcmrecv.events.START_FAILED_PORT_CONFLICT]: {match: 'cannot start SCP and listen on port'},
-  [Dcmrecv.events.DCMRECV_NO_CONVERSION_TRANSFER_SYNTAX]: {match: 'No conversion to transfer syntax'},
+  [Dcmrecv_old.events.START_FAILED_PORT_CONFLICT]: {match: 'cannot start SCP and listen on port'},
+  [Dcmrecv_old.events.DCMRECV_NO_CONVERSION_TRANSFER_SYNTAX]: {match: 'No conversion to transfer syntax'},
   // Sending C-STORE Response (Success)
-  // [Dcmrecv.events.DICOM_SEND_SUCCESS]: {},
-  // [Dcmrecv.events.DICOM_SEND_FAILED]: {},
-  // [Dcmrecv.events.DICOM_SEND_FAILED_CONNECTION_REFUSED]: {},
-  // [Dcmrecv.events.DICOM_MODIFY_SUCCESS]: {},
-  // [Dcmrecv.events.DICOM_MODIFY_SUCCESS]: {},
+  // [Dcmrecv_old.events.DICOM_SEND_SUCCESS]: {},
+  // [Dcmrecv_old.events.DICOM_SEND_FAILED]: {},
+  // [Dcmrecv_old.events.DICOM_SEND_FAILED_CONNECTION_REFUSED]: {},
+  // [Dcmrecv_old.events.DICOM_MODIFY_SUCCESS]: {},
+  // [Dcmrecv_old.events.DICOM_MODIFY_SUCCESS]: {},
 }
 
-//Dcmrecv.events = DICOM_EVENTS
-module.exports = Dcmrecv
+//Dcmrecv_old.events = DICOM_EVENTS
+module.exports = Dcmrecv_old

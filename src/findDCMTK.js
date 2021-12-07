@@ -6,145 +6,145 @@ const isWindows = process.platform === 'win32'
 
 
 const DCMTK_KNOW_LOCATIONS = [
-    '/dcmtk/usr/local/bin',
-    '/usr/local/bin',
-    'C:\\ProgramData\\chocolatey\\bin'
+  '/dcmtk/usr/local/bin',
+  '/usr/local/bin',
+  'C:\\ProgramData\\chocolatey\\bin'
 ]
 
 const DCMTK_BINARIES = [
-    'cda2dcm',
-    'dcm2json',
-    'dcm2pdf',
-    'dcm2xml',
-    'dcmconv',
-    'dcmcrle',
-    'dcmdrle',
-    'dcmdump',
-    'dcmftest',
-    'dcmgpdir',
-    'dcmodify',
-    'dump2dcm',
-    'img2dcm',
-    'pdf2dcm',
-    'stl2dcm',
-    'xml2dcm',
+  'cda2dcm',
+  'dcm2json',
+  'dcm2pdf',
+  'dcm2xml',
+  'dcmconv',
+  'dcmcrle',
+  'dcmdrle',
+  'dcmdump',
+  'dcmftest',
+  'dcmgpdir',
+  'dcmodify',
+  'dump2dcm',
+  'img2dcm',
+  'pdf2dcm',
+  'stl2dcm',
+  'xml2dcm',
 
-    'dcm2pnm',
-    'dcmquant',
-    'dcmscale',
+  'dcm2pnm',
+  'dcmquant',
+  'dcmscale',
 
-    'dcmdspfn',
-    'dcod2lum',
-    'dconvlum',
+  'dcmdspfn',
+  'dcod2lum',
+  'dconvlum',
 
-    'dcmcjpeg',
-    'dcmdjpeg',
-    'dcmj2pnm',
-    'dcmmkdir',
+  'dcmcjpeg',
+  'dcmdjpeg',
+  'dcmj2pnm',
+  'dcmmkdir',
 
-    'dcmcjpls',
-    'dcmdjpls',
-    'dcml2pnm',
+  'dcmcjpls',
+  'dcmdjpls',
+  'dcml2pnm',
 
-    'dcmrecv',
-    'dcmsend',
-    'echoscu',
-    'findscu',
-    'getscu',
-    'movescu',
-    'storescp',
-    'storescu',
-    'termscu',
+  'dcmrecv',
+  'dcmsend',
+  'echoscu',
+  'findscu',
+  'getscu',
+  'movescu',
+  'storescp',
+  'storescu',
+  'termscu',
 
-    'dcmmkcrv',
-    'dcmmklut',
-    'dcmp2pgm',
-    'dcmprscp',
-    'dcmprscu',
-    'dcmpschk',
-    'dcmpsmk',
-    'dcmpsprt',
-    'dcmpsrcv',
-    'dcmpssnd',
+  'dcmmkcrv',
+  'dcmmklut',
+  'dcmp2pgm',
+  'dcmprscp',
+  'dcmprscu',
+  'dcmpschk',
+  'dcmpsmk',
+  'dcmpsprt',
+  'dcmpsrcv',
+  'dcmpssnd',
 
-    'dcmqridx',
-    'dcmqrscp',
-    'dcmqrti',
+  'dcmqridx',
+  'dcmqrscp',
+  'dcmqrti',
 
-    'dsr2html',
-    'dsr2xml',
-    'dsrdump',
-    'xml2dsr',
+  'dsr2html',
+  'dsr2xml',
+  'dsrdump',
+  'xml2dsr',
 
-    'wlmscpfs',
+  'wlmscpfs',
 
-    // 'dcm2json',
-    // 'dcm2pdf',
-    // 'dcm2pnm',
-    // 'dcm2xml',
-    // 'dcmcjpeg',
-    // 'dcmcjpls',
-    // 'dcmconv',
-    // 'dcmcrle',
-    // 'dcmdjpeg',
-    // 'dcmdjpls',
-    // 'dcmdrle',
-    // 'dcmdspfn',
-    // 'dcmdump',
-    // 'dcmftest',
-    // 'dcmgpdir',
-    // 'dcmicmp',
-    // 'dcmj2pnm',
-    // 'dcml2pnm',
-    // 'dcmmkcrv',
-    // 'dcmmkdir',
-    // 'dcmmklut',
-    // 'dcmodify',
-    // 'dcmp2pgm',
-    // 'dcmprscp',
-    // 'dcmprscu',
-    // 'dcmpschk',
-    // 'dcmpsmk',
-    // 'dcmpsprt',
-    // 'dcmpsrcv',
-    // 'dcmpssnd',
-    // 'dcmqridx',
-    // 'dcmqrscp',
-    // 'dcmqrti',
-    // 'dcmquant',
-    // 'dcmrecv',
-    // 'dcmscale',
-    // 'dcmsend',
-    // 'dcmsign',
+  // 'dcm2json',
+  // 'dcm2pdf',
+  // 'dcm2pnm',
+  // 'dcm2xml',
+  // 'dcmcjpeg',
+  // 'dcmcjpls',
+  // 'dcmconv',
+  // 'dcmcrle',
+  // 'dcmdjpeg',
+  // 'dcmdjpls',
+  // 'dcmdrle',
+  // 'dcmdspfn',
+  // 'dcmdump',
+  // 'dcmftest',
+  // 'dcmgpdir',
+  // 'dcmicmp',
+  // 'dcmj2pnm',
+  // 'dcml2pnm',
+  // 'dcmmkcrv',
+  // 'dcmmkdir',
+  // 'dcmmklut',
+  // 'dcmodify',
+  // 'dcmp2pgm',
+  // 'dcmprscp',
+  // 'dcmprscu',
+  // 'dcmpschk',
+  // 'dcmpsmk',
+  // 'dcmpsprt',
+  // 'dcmpsrcv',
+  // 'dcmpssnd',
+  // 'dcmqridx',
+  // 'dcmqrscp',
+  // 'dcmqrti',
+  // 'dcmquant',
+  // 'dcmrecv',
+  // 'dcmscale',
+  // 'dcmsend',
+  // 'dcmsign',
 ]
 
 const asyncFind = async (arr, predicate) => {
-    for (let e of arr) {
-        if (await predicate(e)) return e
+  for (let e of arr) {
+    if (await predicate(e)) return e
+  }
+}
+
+const findDCMTKInstall = () => {
+  return DCMTK_KNOW_LOCATIONS.find((installPath) => {
+    let _path = path.resolve(installPath, isWindows ? `echoscu.exe` : 'echoscu')
+    try {
+      fs.accessSync(_path, fs.constants.X_OK)
+      return true
+    } catch {
+      return false
     }
+  })
 }
 
-const findDCMTKInstall = async () => {
-    return asyncFind(DCMTK_KNOW_LOCATIONS, async (installPath) => {
-        let _path = path.resolve(installPath, isWindows ? `echoscu.exe` : 'echoscu')
-        try {
-            await fsp.access(_path, fs.constants.X_OK)
-            return true
-        } catch {
-            return false
-        }
-    })
-}
-
-const findDCMTK = async () => {
-    const dcmtkPath = process.env.DCMTK_PATH || await findDCMTKInstall()
-    if (dcmtkPath == null) throw new Error('Could not find DCMTK install!')
-    const binaries = {}
-    DCMTK_BINARIES.forEach((bin) => {
-        binaries[bin] = path.resolve(dcmtkPath, bin + (isWindows ? `.exe` : ''))
-        process.env[`DCMTK_${bin.toUpperCase()}`] = binaries[bin]
-    })
-    return binaries
+const findDCMTK = () => {
+  const dcmtkPath = process.env.DCMTK_PATH || findDCMTKInstall()
+  if (dcmtkPath == null) throw new Error('Could not find DCMTK install!')
+  const binaries = {}
+  DCMTK_BINARIES.forEach((bin) => {
+    binaries[bin] = path.resolve(dcmtkPath, bin + (isWindows ? `.exe` : ''))
+    process.env[`DCMTK_${bin.toUpperCase()}`] = binaries[bin]
+  })
+  return binaries
 }
 
 module.exports = findDCMTK

@@ -1,5 +1,5 @@
-const findDCMTK = require('../../findDCMTK')
-const dcmdump = require('../../dcmdata/dcmdump')
+const findDCMTK = require('../../../src/findDCMTK')
+const dcmdump = require('../../../src/dcmdata/dcmdump')
 
 
 
