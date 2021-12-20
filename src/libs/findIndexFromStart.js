@@ -1,6 +1,6 @@
 /**
  * Same as Array.findIndex but requires a start index
- * @param {[]} arr
+ * @param {Array} arr
  * @param {Number} start
  * @param {function} callbackFn
  * @return {number}
