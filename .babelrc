@@ -1,5 +1,13 @@
 {
   "presets": [
-    ["@babel/preset-env"]
+    [
+      "@babel/preset-env",
+      // https://stackoverflow.com/questions/42535270/regeneratorruntime-is-not-defined-when-running-jest-test
+      {
+        "targets": {
+          "node": "current"
+        }
+      }
+    ]
   ]
 }

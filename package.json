@@ -5,15 +5,21 @@
   "license": "MIT",
   "dependencies": {
     "dcmjs-dimse": "^0.0.12",
-    "jest": "^27.4.3",
-    "jest-coverage-badges": "^1.1.2",
-    "jsdoc": "^3.6.7",
-    "jsdoc-to-markdown": "^7.1.0",
+    "tree-kill": "^1.2.2",
     "xml2js": "^0.4.23"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.16.5",
     "@babel/preset-env": "^7.16.5",
-    "eslint": "^8.5.0"
+    "eslint": "^8.5.0",
+    "jest": "^27.4.3",
+    "jest-coverage-badges": "^1.1.2",
+    "jsdoc": "^3.6.7",
+    "jsdoc-to-markdown": "^7.1.0"
+  },
+  "scripts": {
+    "test": "jest",
+    "docs": "docs.sh",
+    "jsdoc2md": "jsdoc2md --files src/**.js --files src/**/**.js > docs/API.md"
   }
 }
