@@ -33,3 +33,4 @@ dicom/**
 /data/rds-combined-ca-us-gov-bundle.pem
 /scratch/
 .env
+/output/
