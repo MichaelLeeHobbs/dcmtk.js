@@ -1,66 +1,6 @@
 const findDCMTK = require('../findDCMTK')
 const DCMProcess = require('../DCMProcess')
-const dimseMessage = require('../events/dimseMessage')
-// const pdu = require('../parsers/pdu')
-const statusSummary = require('../events/dcmSend/statusSummary')
-const addingDICOMFile = require('../events/dcmSend/addingDICOMFile')
-const aAssociateAC = require('../events/aAssociateAC')
-const aAssociateRQ = require('../events/aAssociateRQ')
-
-const parsers = [
-  {event: 'starting', regex: /^(?<level>\w): \$(?<message>dcmtk: (?<binary>[^]*?) (?<version>v\d+\.\d+.\d+) (?<date>[^]*?)) \$/},
-  // {event: '', regex: /^(?<level>\w): (?<message>determining input files) .../},
-  {event: 'checkingInputFiles', regex: /^(?<level>\w): (?<message>checking input files) .../},
-  // {event: '', regex: /^(?<level>\w): (?<message>multiple associations allowed) \(option --multi-associations used\)/},
-  // {
-  //   event: '',
-  //   regex: /^(?<level>\w): (?<message>preparing presentation context for SOP Class \/ Transfer Syntax: XRayAngiographicImageStorage \/ JPEG Baseline)/
-  // },
-  // {
-  //   event: '',
-  // eslint-disable-next-line max-len
-  //   regex: /^(?<level>\w): (?<message>transfer syntax uses a lossy compression but we are not allowed to decompress it, so we are not proposing any uncompressed transfer syntax)/
-  // },
-  // {event: '', regex: /^(?<level>\w): (?<message>added new presentation context with ID \d*)/},
-  // {
-  //   event: '',
-  // eslint-disable-next-line max-len
-  //   regex: /^(?<level>\w): (?<message>same SOP Class UID and compatible Transfer Syntax UID as for another SOP instance, reusing the presentation context with ID \d*)/
-  // },
-  // {event: '', regex: /^(?<level>\w): (?<message>starting association #\d*)/},
-  // {event: '', regex: /^(?<level>\w): (?<message>initializing network) .../},
-  {event: 'sendingSOPInstances', regex: /^(?<level>\w): (?<message>sending SOP instances) .../},
-  // {event: '', regex: /^(?<level>\w): (?<message>Configured a total of \d* presentation contexts for SCU)/},
-  // {event: '', regex: /^(?<level>\w): (?<message>negotiating network association) .../},
-  {event: 'requestingAssociation', regex: /^(?<level>\w): (?<message>Requesting Association)/},
-  // {event: '', regex: /^(?<level>\w): (?<message>setting network send timeout to \d+ seconds)/},
-  // {event: '', regex: /^(?<level>\w): (?<message>setting network receive timeout to \d+ seconds)/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>Constructing Associate RQ PDU)/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>Parsing an A-ASSOCIATE PDU)/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>checking whether SOP Class UID and SOP Instance UID in dataset are consistent with transfer list)/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>getting SOP Class UID, SOP Instance UID and Transfer Syntax UID from DICOM dataset)/},
-  // {event: '', regex: /^(?<level>\w): (?<message>Sending C-STORE Request)/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>DcmDataset::read\(\) TransferSyntax="(?<transferSyntax>[^]*?)")/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>DcmMetaInfo::checkAndReadPreamble\(\) TransferSyntax="(?<transferSyntax>[^]*?)")/},
-  {event: 'cStoreResponse', regex: /^(?<level>\w): (?<message>Received C-STORE Response)/},
-  {event: 'sendingSOPInstance', regex: /^(?<level>\w): (?<message>sending SOP instance from file: (?<file>[^]*))\n/},
-  {event: 'associationAccepted', regex: /^(?<level>\w): (?<message>Association Accepted \(Max Send PDV: (?<maxSendPDV>[^]*)\))\n/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>DcmSequenceOfItems: Length of item in sequence PixelData (?<tag>\([^]*?\)) is odd)\n/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>DcmElement::compact\(\) removed element value of (?<tag>\([^]*?\)) with (?<bytes>[^]*?) bytes)\n/},
-  {event: 'releasingAssociation', regex: /^(?<level>\w): (?<message>Releasing Association)\n/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>Cleaning up internal association and network structures)\n/},
-  {
-    event: 'totalInstances',
-    // eslint-disable-next-line max-len
-    regex: /^(?<level>\w): (?<message>in total, there are (?<totalInstances>[^]*?) SOP instances to be sent, (?<invalidInstances>[^]*?) invalid files are ignored)/
-  },
-  {event: 'sendSummary', type: 'block', ...statusSummary},
-  {event: 'addingDICOMFile', type: 'block', ...addingDICOMFile},
-  {event: 'aAssociateAC', type: 'block', ...aAssociateAC},
-  {event: 'aAssociateRQ', type: 'block', ...aAssociateRQ},
-  // {event: 'pdu', type: 'block', ...pdu},
-  {event: 'dimseMessage', type: 'block', ...dimseMessage},
-]
+const events = require('../events')
 
 /**
  * DCM Receiver
@@ -95,7 +35,7 @@ class StoreSCU extends DCMProcess {
                 noHalt, noIllegalProposal, noUidChecks, AETitle, calledAETitle, association, timeout,
                 acseTimeout = 30, dimseTimeout, maxPDU = 16384, maxSendPDU, reportFile,
               }) {
-    super({_binary: findDCMTK().dcmsend, _parsers: parsers})
+    super({binary: findDCMTK().dcmsend, events})
 
     this.#port = port
     this.#AETitle = AETitle
@@ -117,6 +57,10 @@ class StoreSCU extends DCMProcess {
     this.#timeout = timeout
     this.#maxSendPDU = maxSendPDU
     this.#reportFile = reportFile
+
+    if (maxPDU % maxSendPDU !== 0) {
+      throw new Error(`Invalid maxPDU ${maxPDU} and maxSendPDU ${maxSendPDU}! maxPDU % maxSendPDU === 0 must be true!`)
+    }
   }
 
   //region Getters/Setters
@@ -732,21 +676,3 @@ class StoreSCU extends DCMProcess {
 }
 
 module.exports = StoreSCU
-
-
-const dcmSend = new StoreSCU({
-  peer: '127.0.0.1', port: 104,
-  // dcmFileIn: 'C:\\Users\\mhobb\\WebstormProjects\\dcmtk.js\\dicomSamples',
-  dcmFileIn: 'C:\\Users\\mhobb\\WebstormProjects\\dcmtk.js\\dicomSamplesBad',
-  inputFiles: 'scan', recurse: true, compression: 0,
-  noHalt: true, noIllegalProposal: false, noUidChecks: true,
-  AETitle: undefined, calledAETitle: undefined,
-  timeout: 15, maxPDU: 131072, maxSendPDU: 131072, reportFile: undefined,
-})
-dcmSend.send({dcmFileIn: 'C:\\Users\\mhobb\\WebstormProjects\\dcmtk.js\\dicomSamples'})
-  .then(console.log)
-
-dcmSend.on('starting', console.log)
-// dcmSend.send({dcmFileIn: 'C:\\Users\\mhobb\\WebstormProjects\\dcmtk.js\\dicomSamplesBad'})
-
-
