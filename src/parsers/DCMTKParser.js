@@ -12,8 +12,6 @@ class DCMTKParser extends events {
     debug('constructor')
     this.#events = events
     this.reset()
-    this.on('parsed', (msg) => this.#state.messages.push(msg))
-    this.on('parseFailed', (msg) => this.#state.messages.push(msg))
   }
 
   get stdoutLog() {
@@ -45,7 +43,6 @@ class DCMTKParser extends events {
         blockHandler: -1,
         parser: undefined,
       },
-      messages: [],
     }
   }
 
@@ -67,12 +64,10 @@ class DCMTKParser extends events {
       // there are three types of parsers: regex, func, and block
       this.#events.some(event => {
 
-        // if (event instanceof DCMTKEvent) {
         if (!event.isMultiLine()) {
-          debug('#parse', 'parsing single line', event.event)
           let result = event.parse(i, this.#state[source].log, source)
           if (result) {
-            debug('#parse', 'parsing single line - result', event.event, result)
+            debug('#parse', 'parsing single line - result', result)
             return this.emit('parsed', result)
           }
         } else if (event.hasHeaderMatch(raw)) {
@@ -82,30 +77,6 @@ class DCMTKParser extends events {
           this.#state[source].blockHandler = setTimeout(() => this.#parseBlockFailed(source), event.timeout || 1000)
           return blockParserSelected = true
         }
-        // }
-        // else if (event.type === 'block') {
-        //   if (event.header.test(raw)) {
-        //     this.#state[source].parser = event
-        //     // parse block timeout to avoid getting stuck trying to parse unexpected message format
-        //     this.#state[source].blockHandler = setTimeout(() => this.#parseBlockFailed(source), event.timeout || 1000)
-        //     return blockParserSelected = true
-        //   }
-        // } else {
-        //   let result
-        //   if (event.type === 'func') {
-        //     let data = event.func(raw)
-        //     if (data) {
-        //       return this.emit('parsed', {...data, dt: new Date(), event: event.event, source})
-        //     }
-        //   } else {
-        //     let matches = event.regex.exec(raw)
-        //     if (matches) {
-        //       result = {...matches.groups, dt: new Date(), event: event.event, source}
-        //       result.raw = (event.event === 'unhandled') ? matches[0] : undefined
-        //       return this.emit('parsed', result)
-        //     }
-        //   }
-        // }
       })
       if (blockParserSelected) {
         return this.#parse(source, _messages)
