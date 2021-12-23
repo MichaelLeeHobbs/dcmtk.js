@@ -13,10 +13,14 @@ class DCMProcess extends events {
   #messages = []
   #parser = undefined
   #process = undefined
+  #successfulRun = undefined
   #binary = undefined
 
   constructor({binary, events}) {
     super()
+    if (!binary) {
+      throw new Error('"binary" cannot be undefined!')
+    }
     this.#binary = binary
     this.#parser = new DCMTKParser(events)
 
@@ -27,6 +31,7 @@ class DCMProcess extends events {
     this.#parser.on('parsed', (message) => {
       this.#messages.push(message)
       this.emit(message.event, message)
+      this.emit('message', message)
     })
     this.#reset()
   }
@@ -40,29 +45,6 @@ class DCMProcess extends events {
   //region Getters/Setters
   get process() {
     return this.#process
-  }
-
-  #onExit(exitCode, signal) {
-    if (!this.#process) {
-      return
-    }
-    this.emit('exit', {
-      exitCode,
-      signal,
-      message: `EXIT - exitCode: ${exitCode}  signal: ${signal}`,
-      stdout: this.#parser.stdoutLog,
-      stderr: this.#parser.stderrLog,
-      messages: this.#messages
-    })
-
-    // todo flush pending logs??
-
-    // this.#resolve?.({stdout: this.#parser.stdoutLog, stderr: this.#parser.stderrLog, messages: this.#messages})
-    this.#reset()
-  }
-
-  get messages() {
-    return this.#messages
   }
 
   stop() {
@@ -145,23 +127,57 @@ External libraries used: *(?<externalLibrariesUsed>[^]*)?
     return out
   }
 
+  get messages() {
+    return this.#messages
+  }
+
+  get successfulRun() {
+    return this.#successfulRun
+  }
+
+  set successfulRun(value) {
+    this.#successfulRun = value
+  }
+
+  #onExit(exitCode, signal) {
+    if (!this.#process) {
+      return
+    }
+    if (exitCode === 0) {
+      this.successfulRun = true
+    }
+    this.emit('exit', {
+      exitCode,
+      signal,
+      message: `EXIT - exitCode: ${exitCode}  signal: ${signal}`,
+      stdout: this.#parser.stdoutLog,
+      stderr: this.#parser.stderrLog,
+      messages: this.#messages
+    })
+
+    // todo flush pending logs??
+
+    // this.#resolve?.({stdout: this.#parser.stdoutLog, stderr: this.#parser.stderrLog, messages: this.#messages})
+    this.#reset()
+  }
+
   start(command, stableDelay = 1000) {
     return new Promise((resolve, reject) => {
       if (this.#process) {
         return reject('Process already running!')
       }
-
+      this.#successfulRun = false
       this.#process = spawn(this.#binary, command)
       this.#process.stdout.on('data', (chunk) => this.#handleData(chunk, 'stdout'))
       this.#process.stderr.on('data', (chunk) => this.#handleData(chunk, 'stderr'))
-      this.#process.on('close', (exitCode, signal) => this.emit('close', {exitCode, signal, message: 'CLOSE'}))
-      this.#process.on('exit', (exitCode, signal) => this.#onExit(exitCode, signal))
-      this.#process.on('disconnect', () => this.emit('disconnect', {message: 'DISCONNECT'}))
+      this.#process.once('close', (exitCode, signal) => this.emit('close', {exitCode, signal, message: 'CLOSE'}))
+      this.#process.once('exit', (exitCode, signal) => this.#onExit(exitCode, signal))
+      this.#process.once('disconnect', () => this.emit('disconnect', {message: 'DISCONNECT'}))
       this.#process.on('error', (error) => this.emit('error', {error, message: `ERROR - ${error.message}`}))
       this.#process.on('message', (message) => this.emit('message', {message}))
       this.once('starting', (msg) => {
         setTimeout(() => {
-          if (this.#process) {
+          if (this.#process || this.successfulRun) {
             resolve(msg)
           } else {
             reject(`Process started but failed to keep running for at least ${stableDelay}ms.`)
@@ -195,14 +211,14 @@ External libraries used: *(?<externalLibrariesUsed>[^]*)?
           resolve({
             stdout: this.#parser.stdoutLog,
             stderr: this.#parser.stderrLog,
-            messages: this.#parser.messages,
+            messages: this.messages,
           })
         }
       })
     })
   }
 
-  //endregion
+//endregion
 }
 
 module.exports = DCMProcess
