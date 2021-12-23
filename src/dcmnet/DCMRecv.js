@@ -1,71 +1,27 @@
 const findDCMTK = require('../findDCMTK')
 const DCMProcess = require('../DCMProcess')
-const statusSummary = require('../events/dcmSend/statusSummary')
-const addingDICOMFile = require('../events/dcmSend/addingDICOMFile')
-const aAssociateAC = require('../events/aAssociateAC')
-const aAssociateRQ = require('../events/aAssociateRQ')
-const dimseMessage = require('../events/dimseMessage')
-
-const parsers = [
-  {event: 'starting', regex: /^(?<level>\w): \$(?<message>dcmtk: (?<binary>[^]*?) (?<version>v\d+\.\d+.\d+) (?<date>[^]*?)) \$/},
-  // {event: '', regex: /^(?<level>\w): (?<message>determining input files) .../},
-  {event: 'checkingInputFiles', regex: /^(?<level>\w): (?<message>checking input files) .../},
-  // {event: '', regex: /^(?<level>\w): (?<message>multiple associations allowed) \(option --multi-associations used\)/},
-  // {
-  //   event: '',
-  //   regex: /^(?<level>\w): (?<message>preparing presentation context for SOP Class \/ Transfer Syntax: XRayAngiographicImageStorage \/ JPEG Baseline)/
-  // },
-  // {
-  //   event: '',
-  // eslint-disable-next-line max-len
-  //   regex: /^(?<level>\w): (?<message>transfer syntax uses a lossy compression but we are not allowed to decompress it, so we are not proposing any uncompressed transfer syntax)/
-  // },
-  // {event: '', regex: /^(?<level>\w): (?<message>added new presentation context with ID \d*)/},
-  // {
-  //   event: '',
-  // eslint-disable-next-line max-len
-  //   regex: /^(?<level>\w): (?<message>same SOP Class UID and compatible Transfer Syntax UID as for another SOP instance, reusing the presentation context with ID \d*)/
-  // },
-  // {event: '', regex: /^(?<level>\w): (?<message>starting association #\d*)/},
-  // {event: '', regex: /^(?<level>\w): (?<message>initializing network) .../},
-  {event: 'sendingSOPInstances', regex: /^(?<level>\w): (?<message>sending SOP instances) .../},
-  // {event: '', regex: /^(?<level>\w): (?<message>Configured a total of \d* presentation contexts for SCU)/},
-  // {event: '', regex: /^(?<level>\w): (?<message>negotiating network association) .../},
-  {event: 'requestingAssociation', regex: /^(?<level>\w): (?<message>Requesting Association)/},
-  // {event: '', regex: /^(?<level>\w): (?<message>setting network send timeout to \d+ seconds)/},
-  // {event: '', regex: /^(?<level>\w): (?<message>setting network receive timeout to \d+ seconds)/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>Constructing Associate RQ PDU)/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>Parsing an A-ASSOCIATE PDU)/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>checking whether SOP Class UID and SOP Instance UID in dataset are consistent with transfer list)/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>getting SOP Class UID, SOP Instance UID and Transfer Syntax UID from DICOM dataset)/},
-  // {event: '', regex: /^(?<level>\w): (?<message>Sending C-STORE Request)/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>DcmDataset::read\(\) TransferSyntax="(?<transferSyntax>[^]*?)")/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>DcmMetaInfo::checkAndReadPreamble\(\) TransferSyntax="(?<transferSyntax>[^]*?)")/},
-  {event: 'cStoreResponse', regex: /^(?<level>\w): (?<message>Received C-STORE Response)/},
-  {event: 'sendingSOPInstance', regex: /^(?<level>\w): (?<message>sending SOP instance from file: (?<file>[^]*))\n/},
-  {event: 'associationAccepted', regex: /^(?<level>\w): (?<message>Association Accepted \(Max Send PDV: (?<maxSendPDV>[^]*)\))\n/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>DcmSequenceOfItems: Length of item in sequence PixelData (?<tag>\([^]*?\)) is odd)\n/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>DcmElement::compact\(\) removed element value of (?<tag>\([^]*?\)) with (?<bytes>[^]*?) bytes)\n/},
-  {event: 'releasingAssociation', regex: /^(?<level>\w): (?<message>Releasing Association)\n/},
-  // {event: '', regex: /^(?<level>\w): (?<ignore>Cleaning up internal association and network structures)\n/},
-  {
-    event: 'totalInstances',
-    // eslint-disable-next-line max-len
-    regex: /^(?<level>\w): (?<message>in total, there are (?<totalInstances>[^]*?) SOP instances to be sent, (?<invalidInstances>[^]*?) invalid files are ignored)/
-  },
-  {event: 'sendSummary', type: 'block', ...statusSummary},
-  {event: 'addingDICOMFile', type: 'block', ...addingDICOMFile},
-  {event: 'aAssociateAC', type: 'block', ...aAssociateAC},
-  {event: 'aAssociateRQ', type: 'block', ...aAssociateRQ},
-  // {event: 'pdu', type: 'block', ...pdu},
-  {event: 'dimseMessage', type: 'block', ...dimseMessage},
-]
+const events = require('../events')
 
 /**
  * DCM Receiver
  * @type {DCMRecv}
  */
 class DCMRecv extends DCMProcess {
+  #port
+  #configFile
+  #AETitle
+  #useCalledAETitle
+  #acseTimeout
+  #dimseTimeout
+  #maxPDU
+  #disableHostnameLookup
+  #tls
+  #outputDirectory
+  #subdirectory
+  #filenameGeneration
+  #filenameExtension
+  #storageMode
+
   /**
    *
    * @classdesc Class representing a DCM Receiver
@@ -104,146 +60,149 @@ class DCMRecv extends DCMProcess {
                 acseTimeout = 30, dimseTimeout, maxPDU = 16384, disableHostnameLookup = false,
                 tls, outputDirectory, subdirectory = false, filenameGeneration, filenameExtension, storageMode
               }) {
-    super({_binary: findDCMTK().dcmrecv, _parsers: parsers})
+    super({binary: findDCMTK().dcmrecv, events})
 
-    this._port = port
-    this._configFile = configFile
-    this._AETitle = AETitle
-    this._useCalledAETitle = useCalledAETitle
-    this._acseTimeout = acseTimeout
-    this._dimseTimeout = dimseTimeout
-    this._maxPDU = maxPDU
-    this._disableHostnameLookup = disableHostnameLookup
-    this._tls = tls
-    this._outputDirectory = outputDirectory
-    this._subdirectory = subdirectory
-    this._filenameGeneration = filenameGeneration
-    this._filenameExtension = filenameExtension
-    this._storageMode = storageMode
+    this.#port = port
+    this.#configFile = configFile
+    this.#AETitle = AETitle
+    this.#useCalledAETitle = useCalledAETitle
+    this.#acseTimeout = acseTimeout
+    this.#dimseTimeout = dimseTimeout
+    this.#maxPDU = maxPDU
+    this.#disableHostnameLookup = disableHostnameLookup
+    this.#tls = tls
+    this.#outputDirectory = outputDirectory
+    this.#subdirectory = subdirectory
+    this.#filenameGeneration = filenameGeneration
+    this.#filenameExtension = filenameExtension
+    this.#storageMode = storageMode
   }
 
   //region Getters/Setters
   get port() {
-    return this._port
-  }
-
-  async listCiphers() {
-    return console.warn('Due to a bug in DCMTK dcmrecv TLS is not support at this time.')
-    // const result = await this._execute([this._binary, '--debug', '--list-ciphers'])
-    // return result
+    return this.#port
   }
 
   set port(value) {
-    this._port = value
+    this.#port = value
   }
 
   get configFile() {
-    return this._configFile
+    return this.#configFile
   }
 
+  // async listCiphers() {
+  //   return console.warn('Due to a bug in DCMTK dcmrecv TLS is not support at this time.')
+  //   // const result = await this.#execute([this.#binary, '--debug', '--list-ciphers'])
+  //   // return result
+  // }
+
   set configFile(value) {
-    this._configFile = value
+    this.#configFile = value
   }
 
   get AETitle() {
-    return this._AETitle
+    return this.#AETitle
   }
 
   set AETitle(value) {
-    this._AETitle = value
+    this.#AETitle = value
   }
 
   get useCalledAETitle() {
-    return this._useCalledAETitle
+    return this.#useCalledAETitle
   }
 
   set useCalledAETitle(value) {
-    this._useCalledAETitle = value
+    this.#useCalledAETitle = value
   }
 
   get acseTimeout() {
-    return this._acseTimeout
+    return this.#acseTimeout
   }
 
   set acseTimeout(value) {
-    this._acseTimeout = value
+    this.#acseTimeout = value
   }
 
   get dimseTimeout() {
-    return this._dimseTimeout
+    return this.#dimseTimeout
   }
 
   set dimseTimeout(value) {
-    this._dimseTimeout = value
+    this.#dimseTimeout = value
   }
 
   get maxPDU() {
-    return this._maxPDU
+    return this.#maxPDU
   }
 
   set maxPDU(value) {
-    this._maxPDU = value
+    this.#maxPDU = value
   }
 
   get disableHostnameLookup() {
-    return this._disableHostnameLookup
+    return this.#disableHostnameLookup
   }
 
   set disableHostnameLookup(value) {
-    this._disableHostnameLookup = value
+    this.#disableHostnameLookup = value
   }
 
   get tls() {
-    return this._tls
+    return this.#tls
   }
 
   set tls(value) {
-    this._tls = value
+    this.#tls = value
   }
 
   get outputDirectory() {
-    return this._outputDirectory
+    return this.#outputDirectory
   }
 
   set outputDirectory(value) {
-    this._outputDirectory = value
+    this.#outputDirectory = value
   }
 
   get subdirectory() {
-    return this._subdirectory
+    return this.#subdirectory
   }
 
   set subdirectory(value) {
-    this._subdirectory = value
+    this.#subdirectory = value
   }
 
   get filenameGeneration() {
-    return this._filenameGeneration
+    return this.#filenameGeneration
   }
 
   set filenameGeneration(value) {
-    this._filenameGeneration = value
+    this.#filenameGeneration = value
   }
 
   get filenameExtension() {
-    return this._filenameExtension
+    return this.#filenameExtension
   }
 
   set filenameExtension(value) {
-    this._filenameExtension = value
+    this.#filenameExtension = value
   }
 
   get storageMode() {
-    return this._storageMode
+    return this.#storageMode
   }
 
   set storageMode(value) {
-    this._storageMode = value
+    this.#storageMode = value
   }
 
   // eslint-disable-next-line max-statements
-  _buildCommand() {
+  #buildCommand() {
     const command = []
+
+    command.push(this.port, '--debug')
+
     if (this.configFile?.fileName && this.configFile?.profile) {
       command.push('--config-file', this.configFile.fileName, this.configFile.profile)
     }
@@ -488,6 +447,26 @@ class DCMRecv extends DCMProcess {
     }
 
     return command
+  }
+
+  /**
+   * Starts listening on port
+   * @param {Number} [port=] defaults to StoreSCP.port or 104
+   * @fires StoreSCP#starting
+   * @return {Promise | Promise<unknown>}
+   */
+  listen(port) {
+    this.port = port || this.port
+    // setTimeout(()=>this.emit('starting'), 500)
+    return this.start(this.#buildCommand())
+  }
+
+  /**
+   * Stop listening
+   * @return {Promise<unknown>}
+   */
+  close() {
+    return this.stop()
   }
 
   //endregion
