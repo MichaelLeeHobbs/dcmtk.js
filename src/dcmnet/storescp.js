@@ -134,246 +134,6 @@ class StoreSCP extends DCMProcess {
     this.#sort = sort
   }
 
-  //region Getters/Setters
-  get port() {
-    return this.#port
-  }
-
-  set port(value) {
-    this.#port = value
-  }
-
-  get associationNegotiation() {
-    return this.#associationNegotiation
-  }
-
-  set associationNegotiation(value) {
-    this.#associationNegotiation = value
-  }
-
-  get preferredTransferSyntaxes() {
-    return this.#preferredTransferSyntaxes
-  }
-
-  set preferredTransferSyntaxes(value) {
-    this.#preferredTransferSyntaxes = value
-  }
-
-  get socketTimeout() {
-    return this.#socketTimeout
-  }
-
-  set socketTimeout(value) {
-    this.#socketTimeout = value
-  }
-
-  get acseTimeout() {
-    return this.#acseTimeout
-  }
-
-  set acseTimeout(value) {
-    this.#acseTimeout = value
-  }
-
-  get dimseTimeout() {
-    return this.#dimseTimeout
-  }
-
-  set dimseTimeout(value) {
-    this.#dimseTimeout = value
-  }
-
-  get aeTitle() {
-    return this.#aeTitle
-  }
-
-  set aeTitle(value) {
-    this.#aeTitle = value
-  }
-
-  get maxPDU() {
-    return this.#maxPDU
-  }
-
-  set maxPDU(value) {
-    this.#maxPDU = value
-  }
-
-  get disableHostLookup() {
-    return this.#disableHostLookup
-  }
-
-  set disableHostLookup(value) {
-    this.#disableHostLookup = value
-  }
-
-  get refuseAssociation() {
-    return this.#refuseAssociation
-  }
-
-  set refuseAssociation(value) {
-    this.#refuseAssociation = value
-  }
-
-  get rejectAssociation() {
-    return this.#rejectAssociation
-  }
-
-  set rejectAssociation(value) {
-    this.#rejectAssociation = value
-  }
-
-  get ignoreStoreData() {
-    return this.#ignoreStoreData
-  }
-
-  set ignoreStoreData(value) {
-    this.#ignoreStoreData = value
-  }
-
-  get sleepAfter() {
-    return this.#sleepAfter
-  }
-
-  set sleepAfter(value) {
-    this.#sleepAfter = value
-  }
-
-  get sleepDuring() {
-    return this.#sleepDuring
-  }
-
-  set sleepDuring(value) {
-    this.#sleepDuring = value
-  }
-
-  get abortAfter() {
-    return this.#abortAfter
-  }
-
-  set abortAfter(value) {
-    this.#abortAfter = value
-  }
-
-  get promiscuous() {
-    return this.#promiscuous
-  }
-
-  set promiscuous(value) {
-    this.#promiscuous = value
-  }
-
-  get uidPadding() {
-    return this.#uidPadding
-  }
-
-  set uidPadding(value) {
-    this.#uidPadding = value
-  }
-
-  get outputDirectory() {
-    return this.#outputDirectory
-  }
-
-  set outputDirectory(value) {
-    this.#outputDirectory = value
-  }
-
-  get bitPreserving() {
-    return this.#bitPreserving
-  }
-
-  set bitPreserving(value) {
-    this.#bitPreserving = value
-  }
-
-  get outputFileFormat() {
-    return this.#outputFileFormat
-  }
-
-  set outputFileFormat(value) {
-    this.#outputFileFormat = value
-  }
-
-  get outputTransferSyntax() {
-    return this.#outputTransferSyntax
-  }
-
-  set outputTransferSyntax(value) {
-    this.#outputTransferSyntax = value
-  }
-
-  get disableNewVR() {
-    return this.#disableNewVR
-  }
-
-  set disableNewVR(value) {
-    this.#disableNewVR = value
-  }
-
-  get groupLengthEncoding() {
-    return this.#groupLengthEncoding
-  }
-
-  set groupLengthEncoding(value) {
-    this.#groupLengthEncoding = value
-  }
-
-  get lengthEncoding() {
-    return this.#lengthEncoding
-  }
-
-  set lengthEncoding(value) {
-    this.#lengthEncoding = value
-  }
-
-  get padding() {
-    return this.#padding
-  }
-
-  set padding(value) {
-    this.#padding = value
-  }
-
-  get handlingOfDefinedLengthUNElements() {
-    return this.#handlingOfDefinedLengthUNElements
-  }
-
-  set handlingOfDefinedLengthUNElements(value) {
-    this.#handlingOfDefinedLengthUNElements = value
-  }
-
-  get compressionLevel() {
-    return this.#compressionLevel
-  }
-
-  set compressionLevel(value) {
-    this.#compressionLevel = value
-  }
-
-  get filenameGeneration() {
-    return this.#filenameGeneration
-  }
-
-  set filenameGeneration(value) {
-    this.#filenameGeneration = value
-  }
-
-  get filenameExtension() {
-    return this.#filenameExtension
-  }
-
-  set filenameExtension(value) {
-    this.#filenameExtension = value
-  }
-
-  get sort() {
-    return this.#sort
-  }
-
-  set sort(value) {
-    this.#sort = value
-  }
 
   // eslint-disable-next-line max-statements
   #buildCommand({port = this.port}) {
@@ -988,14 +748,258 @@ class StoreSCP extends DCMProcess {
     return this.start(this.#buildCommand({port}))
   }
 
+  /**
+   * Stop listening
+   * @return {Promise<unknown>}
+   */
   close() {
     return this.stop()
   }
 
-  async listDecoders() {
-    return await this.execute(['--debug', '--list-decoders'])
+  // async listDecoders() {
+  //   return await this.execute(['--debug', '--list-decoders'])
+  // }
+
+  //region Getters/Setters
+  get port() {
+    return this.#port
   }
 
+  set port(value) {
+    this.#port = value
+  }
+
+  get associationNegotiation() {
+    return this.#associationNegotiation
+  }
+
+  set associationNegotiation(value) {
+    this.#associationNegotiation = value
+  }
+
+  get preferredTransferSyntaxes() {
+    return this.#preferredTransferSyntaxes
+  }
+
+  set preferredTransferSyntaxes(value) {
+    this.#preferredTransferSyntaxes = value
+  }
+
+  get socketTimeout() {
+    return this.#socketTimeout
+  }
+
+  set socketTimeout(value) {
+    this.#socketTimeout = value
+  }
+
+  get acseTimeout() {
+    return this.#acseTimeout
+  }
+
+  set acseTimeout(value) {
+    this.#acseTimeout = value
+  }
+
+  get dimseTimeout() {
+    return this.#dimseTimeout
+  }
+
+  set dimseTimeout(value) {
+    this.#dimseTimeout = value
+  }
+
+  get aeTitle() {
+    return this.#aeTitle
+  }
+
+  set aeTitle(value) {
+    this.#aeTitle = value
+  }
+
+  get maxPDU() {
+    return this.#maxPDU
+  }
+
+  set maxPDU(value) {
+    this.#maxPDU = value
+  }
+
+  get disableHostLookup() {
+    return this.#disableHostLookup
+  }
+
+  set disableHostLookup(value) {
+    this.#disableHostLookup = value
+  }
+
+  get refuseAssociation() {
+    return this.#refuseAssociation
+  }
+
+  set refuseAssociation(value) {
+    this.#refuseAssociation = value
+  }
+
+  get rejectAssociation() {
+    return this.#rejectAssociation
+  }
+
+  set rejectAssociation(value) {
+    this.#rejectAssociation = value
+  }
+
+  get ignoreStoreData() {
+    return this.#ignoreStoreData
+  }
+
+  set ignoreStoreData(value) {
+    this.#ignoreStoreData = value
+  }
+
+  get sleepAfter() {
+    return this.#sleepAfter
+  }
+
+  set sleepAfter(value) {
+    this.#sleepAfter = value
+  }
+
+  get sleepDuring() {
+    return this.#sleepDuring
+  }
+
+  set sleepDuring(value) {
+    this.#sleepDuring = value
+  }
+
+  get abortAfter() {
+    return this.#abortAfter
+  }
+
+  set abortAfter(value) {
+    this.#abortAfter = value
+  }
+
+  get promiscuous() {
+    return this.#promiscuous
+  }
+
+  set promiscuous(value) {
+    this.#promiscuous = value
+  }
+
+  get uidPadding() {
+    return this.#uidPadding
+  }
+
+  set uidPadding(value) {
+    this.#uidPadding = value
+  }
+
+  get outputDirectory() {
+    return this.#outputDirectory
+  }
+
+  set outputDirectory(value) {
+    this.#outputDirectory = value
+  }
+
+  get bitPreserving() {
+    return this.#bitPreserving
+  }
+
+  set bitPreserving(value) {
+    this.#bitPreserving = value
+  }
+
+  get outputFileFormat() {
+    return this.#outputFileFormat
+  }
+
+  set outputFileFormat(value) {
+    this.#outputFileFormat = value
+  }
+
+  get outputTransferSyntax() {
+    return this.#outputTransferSyntax
+  }
+
+  set outputTransferSyntax(value) {
+    this.#outputTransferSyntax = value
+  }
+
+  get disableNewVR() {
+    return this.#disableNewVR
+  }
+
+  set disableNewVR(value) {
+    this.#disableNewVR = value
+  }
+
+  get groupLengthEncoding() {
+    return this.#groupLengthEncoding
+  }
+
+  set groupLengthEncoding(value) {
+    this.#groupLengthEncoding = value
+  }
+
+  get lengthEncoding() {
+    return this.#lengthEncoding
+  }
+
+  set lengthEncoding(value) {
+    this.#lengthEncoding = value
+  }
+
+  get padding() {
+    return this.#padding
+  }
+
+  set padding(value) {
+    this.#padding = value
+  }
+
+  get handlingOfDefinedLengthUNElements() {
+    return this.#handlingOfDefinedLengthUNElements
+  }
+
+  set handlingOfDefinedLengthUNElements(value) {
+    this.#handlingOfDefinedLengthUNElements = value
+  }
+
+  get compressionLevel() {
+    return this.#compressionLevel
+  }
+
+  set compressionLevel(value) {
+    this.#compressionLevel = value
+  }
+
+  get filenameGeneration() {
+    return this.#filenameGeneration
+  }
+
+  set filenameGeneration(value) {
+    this.#filenameGeneration = value
+  }
+
+  get filenameExtension() {
+    return this.#filenameExtension
+  }
+
+  set filenameExtension(value) {
+    this.#filenameExtension = value
+  }
+
+  get sort() {
+    return this.#sort
+  }
+
+  set sort(value) {
+    this.#sort = value
+  }
   //endregion
 }
 
