@@ -101,7 +101,7 @@ class StoreSCP extends DCMProcess {
                 lengthEncoding, padding = {}, handlingOfDefinedLengthUNElements, compressionLevel,
                 filenameGeneration, filenameExtension, port, sort
               }) {
-    super({_binary: findDCMTK().storescp, _parsers: events})
+    super({binary: findDCMTK().storescp, events})
     this.#port = port
     this.#associationNegotiation = associationNegotiation
     this.#preferredTransferSyntaxes = preferredTransferSyntaxes
@@ -1011,41 +1011,3 @@ class StoreSCP extends DCMProcess {
  */
 
 module.exports = StoreSCP
-// --debug --accept-all --acse-timeout 30 --aetitle test --max-pdu 131072 --promiscuous --output-directory C:\Users\mhobb\WebstormProjects\dcmtk.js\output --bit-preserving --write-file --filename-extension dcm 104
-
-const storeSCP = new StoreSCP({
-  preferredTransferSyntaxes: ['all'],
-  aeTitle: 'test',
-  maxPDU: 131072,
-  promiscuous: true,
-  disableHostLookup: true,
-  outputDirectory: 'C:\\Users\\mhobb\\WebstormProjects\\dcmtk.js\\output',
-  // sort: {by: 'UID', prefix: ''},
-  sort: {by: 'timestamp', prefix: ''},
-  // bitPreserving: true,
-  filenameExtension: '.dcm',
-  port: 104,
-})
-
-// storeSCP.listen()
-//   .then(console.log)
-//   .catch(console.error)
-//
-// // // storeSCP.process.stdout.on('data', (chunk) => {
-// storeSCP.on('associationRelease', (msg) => {
-//   // console.log(chunk.toString())
-//   // console.log(JSON.stringify(storeSCP.state.stdout.log, null, 2))
-//   console.log(JSON.stringify(storeSCP.messages, null, 2))
-//   storeSCP.close()
-// })
-//
-// storeSCP.on('unhandled', (msg) => {
-//   // console.log(chunk.toString())
-//   // console.log(JSON.stringify(storeSCP.state.stdout.log, null, 2))
-//   console.log('unhandled: ', JSON.stringify(msg), null, 2)
-// })
-// storeSCP.on('parseFailed', (msg) => {
-//   // console.log(chunk.toString())
-//   // console.log(JSON.stringify(storeSCP.state.stdout.log, null, 2))
-//   console.log('parseFailed: ', JSON.stringify(msg), null, 2)
-// })
