@@ -21,6 +21,8 @@ const EVENTS = {
     level: 'info',
     body: /^(?<level>\w): \$(?<message>dcmtk: (?<binary>[^]*?) (?<version>v\d+\.\d+.\d+) (?<date>[^]*?)) \$$/
   }),
+  sendingEchoRequest: new DCMTKEvent({event: 'sendingEchoRequest', level: 'info', body: /^(?<level>\w): Sending Echo Request \(MsgID (?<msgID>[^]*?)\)$/}),
+  receivedEchoResponse: new DCMTKEvent({event: 'receivedEchoResponse', level: 'info', body: /^(?<level>\w): Received Echo Response \((?<status>[^]*?)\)$/}),
   checkingInputFiles: new DCMTKEvent({event: 'checkingInputFiles', level: 'info', body: /^(?<level>\w): (?<message>sending SOP instances) ...$/}),
   sendingSOPInstances: new DCMTKEvent({event: 'sendingSOPInstances', level: 'info', body: /^(?<level>\w): (?<message>sending SOP instances) ...$/}),
   requestingAssociation: new DCMTKEvent({event: 'requestingAssociation', level: 'info', body: /^(?<level>\w): (?<message>Requesting Association)$/}),
@@ -66,7 +68,11 @@ const EVENTS = {
     level: 'info',
     body: /(?<level>\w): creating new subdirectory for study: (?<directory>[^]*)$/
   }),
-  constructingAssociateACPDU: new DCMTKEvent({event: 'constructingAssociateACPDU', level: 'info', body: /(?<level>\w): Constructing Associate AC PDU$/}),
+  constructingAssociatePDU: new DCMTKEvent({
+    event: 'constructingAssociatePDU',
+    level: 'info',
+    body: /(?<level>\w): Constructing Associate (?<type>[^]*?) PDU$/
+  }),
   empty: new DCMTKEvent({event: 'empty', level: 'trace', body: /(?<level>\w):\s*$/}),
   validateMetaInfo: new DCMTKEvent({
     event: 'validateMetaInfo',
