@@ -5,6 +5,7 @@
   "license": "MIT",
   "dependencies": {
     "dcmjs-dimse": "^0.0.12",
+    "debug": "^4.3.3",
     "tree-kill": "^1.2.2",
     "xml2js": "^0.4.23"
   },
