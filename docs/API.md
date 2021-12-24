@@ -4,6 +4,15 @@
 <dt><a href="#DCMProcess">DCMProcess</a> : <code><a href="#DCMProcess">DCMProcess</a></code></dt>
 <dd><p>DCM Process</p>
 </dd>
+<dt><a href="#DCM2XML">DCM2XML</a></dt>
+<dd><p>The dcm2xml utility converts the contents of a DICOM file (file format or raw data set) to XML (Extensible Markup Language). There are two
+outputformats. The first one is specific to DCMTK with its DTD (Document Type Definition) described in the file dcm2xml.dtd. The second one refers to the
+&quot;Native DICOM Model&quot; which is specified for the DICOM Application Hosting service found in DICOM part 19.</p>
+<p>If dcm2xml reads a raw data set (DICOM data without a file format meta-header) it will attempt to guess the transfer syntax by examining the first few
+bytes of the file. It is not always possible to correctly guess the transfer syntax and it is better to convert a data set to a file format whenever
+possible (using the dcmconv utility). It is also possible to use the -f and -t[ieb] options to force dcm2xml to read a data set with a particular
+transfer syntax.</p>
+</dd>
 <dt><a href="#DCMRecv">DCMRecv</a></dt>
 <dd><p>Class representing a DCM Receiver</p>
 </dd>
@@ -50,6 +59,43 @@ DCM Process
 | command |  |
 | [parser] | <code>function</code> |
 
+<a name="DCM2XML"></a>
+
+## DCM2XML
+
+The dcm2xml utility converts the contents of a DICOM file (file format or raw data set) to XML (Extensible Markup Language). There are two outputformats. The
+first one is specific to DCMTK with its DTD (Document Type Definition) described in the file dcm2xml.dtd. The second one refers to the
+"Native DICOM Model" which is specified for the DICOM Application Hosting service found in DICOM part 19.
+
+If dcm2xml reads a raw data set (DICOM data without a file format meta-header) it will attempt to guess the transfer syntax by examining the first few bytes of
+the file. It is not always possible to correctly guess the transfer syntax and it is better to convert a data set to a file format whenever possible (using the
+dcmconv utility). It is also possible to use the -f and -t[ieb] options to force dcm2xml to read a data set with a particular transfer syntax.
+
+**Kind**: global class
+<a name="new_DCM2XML_new"></a>
+
+### new DCM2XML([inputFileFormat], [inputTransferSyntax], [longTagValues], [charset], [XMLFormat], [useXMLNamespace], XMLOptions, [binaryEncoding])
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| [inputFileFormat] | <code>&#x27;file&#x27;</code> \| <code>&#x27;file-only&#x27;</code> \| <code>&#x27;dataset&#x27;</code> | <code>file</code> | file; read file format or data set, file-only; read file format only, dataset; read data set without file meta information |
+| [inputTransferSyntax] | <code>&#x27;auto&#x27;</code> \| <code>&#x27;detect&#x27;</code> \| <code>&#x27;little&#x27;</code> \| <code>&#x27;big&#x27;</code> \| <code>&#x27;implicit&#x27;</code> | <code>auto</code> | auto; use TS recognition detect; ignore TS specified in the file meta header little; read with explicit VR little endian TS big; read with explicit VR big endian TS implicit; read with implicit VR little endian TS |
+| [longTagValues] | <code>Object</code> | <code>{load: &#x27;short&#x27;, maxReadLength: 4}</code> |  |
+| [longTagValues.load] | <code>&#x27;all&#x27;</code> \| <code>&#x27;short&#x27;</code> | <code>short</code> | all; load very long tag values (e.g. pixel data), short; do not load very long values (default) |
+| [longTagValues.maxReadLength] | <code>number</code> | <code>4</code> | integer (4..4194302, default: 4) set threshold for long values to k kbytes |
+| [charset] | <code>Object</code> | <code>{option: &#x27;require&#x27;, maxReadLength: 4}</code> | processing options - specific character set |
+| [charset.option] | <code>&#x27;require&#x27;</code> \| <code>&#x27;check-all&#x27;</code> \| <code>&#x27;assume&#x27;</code> | <code>require</code> | require; require declaration of extended charset, check-all; check all data elements with string values (default: only PN, LO, LT, SH, ST, UC and UT), assume; assume charset charset.assumeCharset if no extended charset declared |
+| [charset.assumeCharset=] | <code>string</code> |  | charset to assume if charset.option=assume |
+| [XMLFormat] | <code>&#x27;dcmtk&#x27;</code> \| <code>&#x27;native&#x27;</code> | <code>dcmtk</code> | dcmtk; output in DCMTK-specific format, native; output in Native DICOM Model format (part 19) |
+| [useXMLNamespace] | <code>boolean</code> | <code>false</code> | add XML namespace declaration to root element |
+| XMLOptions | <code>Object</code> |  | DCMTK-specific format (not with XMLFormat=native) |
+| [XMLOptions.addDTDReference] | <code>boolean</code> | <code>false</code> |  |
+| [XMLOptions.embedDTDReference] | <code>boolean</code> | <code>false</code> |  |
+| [XMLOptions.useDTDFile] | <code>string</code> | <code>&quot;/usr/local/share/dcmtk/dcm2xml.dtd&quot;</code> |  |
+| [XMLOptions.writeElementName] | <code>boolean</code> | <code>true</code> |  |
+| [XMLOptions.writeBinaryData] | <code>boolean</code> | <code>false</code> | write binary data of OB and OW elements (default: off, be careful with longTagValues.load=all) |
+| [binaryEncoding] | <code>&#x27;hex&#x27;</code> \| <code>&#x27;uuid&#x27;</code> \| <code>&#x27;base64&#x27;</code> | <code>(&#x27;hex&#x27;|&#x27;uuid&#x27;)</code> | hex; encode binary data as hex numbers (default for DCMTK-specific format), uuid; encode binary data as a UUID reference (default for Native DICOM Model), base64; encode binary data as Base64 (RFC 2045, MIME) |
+
 <a name="DCMRecv"></a>
 
 ## DCMRecv
@@ -57,6 +103,12 @@ DCM Process
 Class representing a DCM Receiver
 
 **Kind**: global class
+
+* [DCMRecv](#DCMRecv)
+  * [new DCMRecv([port], configFile, [AETitle], useCalledAETitle, [acseTimeout], dimseTimeout, [maxPDU], [disableHostnameLookup], tls, outputDirectory, subdirectory, filenameGeneration, filenameExtension, storageMode)](#new_DCMRecv_new)
+  * [.listen([port&#x3D;])](#DCMRecv+listen) ⇒ <code>Promise</code> \| <code>Promise.&lt;unknown&gt;</code>
+  * [.close()](#DCMRecv+close) ⇒ <code>Promise.&lt;unknown&gt;</code>
+
 <a name="new_DCMRecv_new"></a>
 
 ### new DCMRecv([port], configFile, [AETitle], useCalledAETitle, [acseTimeout], dimseTimeout, [maxPDU], [disableHostnameLookup], tls, outputDirectory, subdirectory, filenameGeneration, filenameExtension, storageMode)
@@ -90,6 +142,26 @@ Class representing a DCM Receiver
 | filenameExtension | <code>string</code> |  |  |
 | storageMode | <code>&#x27;normal&#x27;</code> \| <code>&#x27;preserving&#x27;</code> \| <code>&#x27;ignore&#x27;</code> |  |  |
 
+<a name="DCMRecv+listen"></a>
+
+### dcmRecv.listen([port&#x3D;]) ⇒ <code>Promise</code> \| <code>Promise.&lt;unknown&gt;</code>
+
+Starts listening on port
+
+**Kind**: instance method of [<code>DCMRecv</code>](#DCMRecv)
+**Emits**: [<code>starting</code>](#StoreSCP+event_starting)
+
+| Param | Type | Description |
+| --- | --- | --- |
+| [port=] | <code>Number</code> | defaults to StoreSCP.port or 104 |
+
+<a name="DCMRecv+close"></a>
+
+### dcmRecv.close() ⇒ <code>Promise.&lt;unknown&gt;</code>
+
+Stop listening
+
+**Kind**: instance method of [<code>DCMRecv</code>](#DCMRecv)
 <a name="DCMRecv"></a>
 
 ## DCMRecv : [<code>DCMRecv</code>](#DCMRecv)
@@ -97,6 +169,12 @@ Class representing a DCM Receiver
 DCM Receiver
 
 **Kind**: global class
+
+* [DCMRecv](#DCMRecv) : [<code>DCMRecv</code>](#DCMRecv)
+  * [new DCMRecv([port], configFile, [AETitle], useCalledAETitle, [acseTimeout], dimseTimeout, [maxPDU], [disableHostnameLookup], tls, outputDirectory, subdirectory, filenameGeneration, filenameExtension, storageMode)](#new_DCMRecv_new)
+  * [.listen([port&#x3D;])](#DCMRecv+listen) ⇒ <code>Promise</code> \| <code>Promise.&lt;unknown&gt;</code>
+  * [.close()](#DCMRecv+close) ⇒ <code>Promise.&lt;unknown&gt;</code>
+
 <a name="new_DCMRecv_new"></a>
 
 ### new DCMRecv([port], configFile, [AETitle], useCalledAETitle, [acseTimeout], dimseTimeout, [maxPDU], [disableHostnameLookup], tls, outputDirectory, subdirectory, filenameGeneration, filenameExtension, storageMode)
@@ -130,6 +208,26 @@ DCM Receiver
 | filenameExtension | <code>string</code> |  |  |
 | storageMode | <code>&#x27;normal&#x27;</code> \| <code>&#x27;preserving&#x27;</code> \| <code>&#x27;ignore&#x27;</code> |  |  |
 
+<a name="DCMRecv+listen"></a>
+
+### dcmRecv.listen([port&#x3D;]) ⇒ <code>Promise</code> \| <code>Promise.&lt;unknown&gt;</code>
+
+Starts listening on port
+
+**Kind**: instance method of [<code>DCMRecv</code>](#DCMRecv)
+**Emits**: [<code>starting</code>](#StoreSCP+event_starting)
+
+| Param | Type | Description |
+| --- | --- | --- |
+| [port=] | <code>Number</code> | defaults to StoreSCP.port or 104 |
+
+<a name="DCMRecv+close"></a>
+
+### dcmRecv.close() ⇒ <code>Promise.&lt;unknown&gt;</code>
+
+Stop listening
+
+**Kind**: instance method of [<code>DCMRecv</code>](#DCMRecv)
 <a name="DCMSend"></a>
 
 ## DCMSend
@@ -139,12 +237,12 @@ Class representing a DCM Sender
 **Kind**: global class
 
 * [DCMSend](#DCMSend)
-  * [new DCMSend(peer, [port], inputFileFormat, inputFiles, scanPattern, [recurse], decompress, compression, [noHalt], [noIllegalProposal], [noUidChecks], [AETitle], [calledAETitle], [association], timeout, [acseTimeout], dimseTimeout, [maxPDU], maxSendPDU, reportFile)](#new_DCMSend_new)
+  * [new DCMSend(peer, [port], inputFileFormat, inputFiles, scanPattern, [recurse], decompress, compression, [noHalt], [noIllegalProposal], [noUidChecks], [AETitle], [calledAETitle], [association], timeout, [acseTimeout], dimseTimeout, [maxPDU], [maxSendPDU], reportFile)](#new_DCMSend_new)
   * [.send([peer&#x3D;], [port&#x3D;], dcmFileIn, [AETitle], [calledAETitle])](#DCMSend+send)
 
 <a name="new_DCMSend_new"></a>
 
-### new DCMSend(peer, [port], inputFileFormat, inputFiles, scanPattern, [recurse], decompress, compression, [noHalt], [noIllegalProposal], [noUidChecks], [AETitle], [calledAETitle], [association], timeout, [acseTimeout], dimseTimeout, [maxPDU], maxSendPDU, reportFile)
+### new DCMSend(peer, [port], inputFileFormat, inputFiles, scanPattern, [recurse], decompress, compression, [noHalt], [noIllegalProposal], [noUidChecks], [AETitle], [calledAETitle], [association], timeout, [acseTimeout], dimseTimeout, [maxPDU], [maxSendPDU], reportFile)
 
 | Param | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -165,8 +263,8 @@ Class representing a DCM Sender
 | timeout | <code>number</code> |  | timeout for connection requests (default: unlimited) |
 | [acseTimeout] | <code>number</code> | <code>30</code> | seconds timeout for ACSE messages |
 | dimseTimeout | <code>number</code> |  | seconds timeout for DIMSE messages (default: unlimited) |
-| [maxPDU] | <code>number</code> | <code>16384</code> | set max receive pdu to number of bytes (4096..131072) |
-| maxSendPDU | <code>number</code> |  | restrict max send pdu to n bytes (4096..131072) |
+| [maxPDU] | <code>number</code> | <code>131072</code> | set max receive pdu to number of bytes (4096..131072) |
+| [maxSendPDU] | <code>number</code> | <code>131072</code> | restrict max send pdu to n bytes (4096..131072) |
 | reportFile | <code>string</code> |  | create a detailed report on the transfer (if successful) and write it to text file reportFile |
 
 <a name="DCMSend+send"></a>
@@ -194,12 +292,12 @@ DCM Receiver
 **Kind**: global class
 
 * [DCMSend](#DCMSend) : [<code>DCMRecv</code>](#DCMRecv)
-  * [new DCMSend(peer, [port], inputFileFormat, inputFiles, scanPattern, [recurse], decompress, compression, [noHalt], [noIllegalProposal], [noUidChecks], [AETitle], [calledAETitle], [association], timeout, [acseTimeout], dimseTimeout, [maxPDU], maxSendPDU, reportFile)](#new_DCMSend_new)
+  * [new DCMSend(peer, [port], inputFileFormat, inputFiles, scanPattern, [recurse], decompress, compression, [noHalt], [noIllegalProposal], [noUidChecks], [AETitle], [calledAETitle], [association], timeout, [acseTimeout], dimseTimeout, [maxPDU], [maxSendPDU], reportFile)](#new_DCMSend_new)
   * [.send([peer&#x3D;], [port&#x3D;], dcmFileIn, [AETitle], [calledAETitle])](#DCMSend+send)
 
 <a name="new_DCMSend_new"></a>
 
-### new DCMSend(peer, [port], inputFileFormat, inputFiles, scanPattern, [recurse], decompress, compression, [noHalt], [noIllegalProposal], [noUidChecks], [AETitle], [calledAETitle], [association], timeout, [acseTimeout], dimseTimeout, [maxPDU], maxSendPDU, reportFile)
+### new DCMSend(peer, [port], inputFileFormat, inputFiles, scanPattern, [recurse], decompress, compression, [noHalt], [noIllegalProposal], [noUidChecks], [AETitle], [calledAETitle], [association], timeout, [acseTimeout], dimseTimeout, [maxPDU], [maxSendPDU], reportFile)
 
 | Param | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -220,8 +318,8 @@ DCM Receiver
 | timeout | <code>number</code> |  | timeout for connection requests (default: unlimited) |
 | [acseTimeout] | <code>number</code> | <code>30</code> | seconds timeout for ACSE messages |
 | dimseTimeout | <code>number</code> |  | seconds timeout for DIMSE messages (default: unlimited) |
-| [maxPDU] | <code>number</code> | <code>16384</code> | set max receive pdu to number of bytes (4096..131072) |
-| maxSendPDU | <code>number</code> |  | restrict max send pdu to n bytes (4096..131072) |
+| [maxPDU] | <code>number</code> | <code>131072</code> | set max receive pdu to number of bytes (4096..131072) |
+| [maxSendPDU] | <code>number</code> | <code>131072</code> | restrict max send pdu to n bytes (4096..131072) |
 | reportFile | <code>string</code> |  | create a detailed report on the transfer (if successful) and write it to text file reportFile |
 
 <a name="DCMSend+send"></a>
@@ -251,13 +349,14 @@ DCM Receiver
 * [StoreSCP](#StoreSCP) : [<code>DCMRecv</code>](#DCMRecv)
   * [new StoreSCP(port, [associationNegotiation], preferredTransferSyntaxes, [socketTimeout], [acseTimeout], [dimseTimeout], [aeTitle], [maxPDU], [disableHostLookup], [refuseAssociation], [rejectAssociation], [ignoreStoreData], [sleepAfter], [sleepDuring], [abortAfter], [abortDuring], [promiscuous], [uidPadding], outputDirectory, [sort&#x3D;], [bitPreserving], [outputFileFormat], outputTransferSyntax, [disableNewVR], [groupLengthEncoding], [lengthEncoding], [padding], [handlingOfDefinedLengthUNElements], [compressionLevel], [filenameGeneration], filenameExtension)](#new_StoreSCP_new)
   * [.listen([port&#x3D;])](#StoreSCP+listen) ⇒ <code>Promise</code> \| <code>Promise.&lt;unknown&gt;</code>
+  * [.close()](#StoreSCP+close) ⇒ <code>Promise.&lt;unknown&gt;</code>
   * ["starting"](#StoreSCP+event_starting)
 
 <a name="new_StoreSCP_new"></a>
 
 ### new StoreSCP(port, [associationNegotiation], preferredTransferSyntaxes, [socketTimeout], [acseTimeout], [dimseTimeout], [aeTitle], [maxPDU], [disableHostLookup], [refuseAssociation], [rejectAssociation], [ignoreStoreData], [sleepAfter], [sleepDuring], [abortAfter], [abortDuring], [promiscuous], [uidPadding], outputDirectory, [sort&#x3D;], [bitPreserving], [outputFileFormat], outputTransferSyntax, [disableNewVR], [groupLengthEncoding], [lengthEncoding], [padding], [handlingOfDefinedLengthUNElements], [compressionLevel], [filenameGeneration], filenameExtension)
-
 StoreSCP
+
 
 | Param | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -312,6 +411,13 @@ Starts listening on port
 | --- | --- | --- |
 | [port=] | <code>Number</code> | defaults to StoreSCP.port or 104 |
 
+<a name="StoreSCP+close"></a>
+
+### storeSCP.close() ⇒ <code>Promise.&lt;unknown&gt;</code>
+
+Stop listening
+
+**Kind**: instance method of [<code>StoreSCP</code>](#StoreSCP)
 <a name="StoreSCP+event_starting"></a>
 
 ### "starting"
