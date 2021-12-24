@@ -44,7 +44,6 @@ transfer syntax.</p>
 <a name="DCMProcess"></a>
 
 ## DCMProcess : [<code>DCMProcess</code>](#DCMProcess)
-
 DCM Process
 
 **Kind**: global class
@@ -94,7 +93,7 @@ dcmconv utility). It is also possible to use the -f and -t[ieb] options to force
 | [XMLOptions.useDTDFile] | <code>string</code> | <code>&quot;/usr/local/share/dcmtk/dcm2xml.dtd&quot;</code> |  |
 | [XMLOptions.writeElementName] | <code>boolean</code> | <code>true</code> |  |
 | [XMLOptions.writeBinaryData] | <code>boolean</code> | <code>false</code> | write binary data of OB and OW elements (default: off, be careful with longTagValues.load=all) |
-| [binaryEncoding] | <code>&#x27;hex&#x27;</code> \| <code>&#x27;uuid&#x27;</code> \| <code>&#x27;base64&#x27;</code> | <code>(&#x27;hex&#x27;|&#x27;uuid&#x27;)</code> | hex; encode binary data as hex numbers (default for DCMTK-specific format), uuid; encode binary data as a UUID reference (default for Native DICOM Model), base64; encode binary data as Base64 (RFC 2045, MIME) |
+| [binaryEncoding] | <code>&#x27;hex&#x27;</code> \| <code>&#x27;uuid&#x27;</code> \| <code>&#x27;base64&#x27;</code> | <code>&#x27;hex&#x27;\|&#x27;uuid&#x27;</code> | hex; encode binary data as hex numbers (default for DCMTK-specific format), uuid; encode binary data as a UUID reference (default for Native DICOM Model), base64; encode binary data as Base64 (RFC 2045, MIME) |
 
 <a name="DCMRecv"></a>
 
