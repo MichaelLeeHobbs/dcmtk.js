@@ -4,75 +4,98 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dcmtk.js is a Node.js wrapper around DCMTK (DICOM Toolkit) C++ command-line utilities. It spawns DCMTK binaries as child processes and provides a JavaScript API for DICOM file conversion, network operations, and data manipulation. **Requires DCMTK installed on the system** (detected via `DCMTK_PATH` env var or known install locations).
+dcmtk is a modern TypeScript library wrapping all 60+ DCMTK (DICOM Toolkit) C++ command-line binaries with type-safe APIs. Built to the standards defined in `docs/TypeScript Coding Standard for Mission-Critical Systems.md`. **Requires DCMTK installed on the system** (detected via `DCMTK_PATH` env var or known install locations).
 
-This project is a WIP that was started in 2021 and is incomplete. Key areas still in development include `DicomObject`, `DicomElement`, and `DicomDictionary` classes in `src/dcmdata/`.
+The full build plan is in `PLAN.md`. This project is being rewritten from the ground up in TypeScript (Phases 1-2 complete).
 
 ## Commands
 
 ```bash
-yarn test                    # Run all tests with coverage
-npx jest path/to/test.js     # Run a single test file
-npx jest --testPathPattern="DCM2JSON"  # Run tests matching a pattern
-npx eslint src/              # Lint source files
+pnpm run test                # Run all tests
+pnpm run test:coverage       # Run tests with coverage (95% threshold enforced)
+pnpm run test:watch          # Run tests in watch mode
+pnpm run lint                # Lint with --max-warnings 0
+pnpm run lint:fix            # Lint and auto-fix
+pnpm run format              # Format with Prettier
+pnpm run format:check        # Check formatting
+pnpm run typecheck           # TypeScript type checking (tsc --noEmit)
+pnpm run build               # Build with tsup (CJS + ESM + DTS)
+pnpm run clean               # Remove dist/ and coverage/
+pnpm run dry-run             # npm pack --dry-run to verify package contents
 ```
 
 ## Code Style
 
-- No semicolons
+- Semicolons required
 - Single quotes
-- 2-space indentation
+- 4-space indentation
 - Max line length: 160 characters
-- camelCase naming
-- 1TBS brace style
-- No spaces inside object braces: `{foo}` not `{ foo }`
-- JavaScript private class fields (`#field`) used extensively for encapsulation
-- ESLint enforces max function depth of 3 and max 30 statements per function
+- Trailing commas (es5)
+- LF line endings
+- Arrow parens: avoid for single params
+- Prettier formats all code; ESLint enforces mission-critical rules
+
+## Governing Standards
+
+All code **shall** comply with `docs/TypeScript Coding Standard for Mission-Critical Systems.md`. Key rules:
+
+- **No `any`** (Rule 3.2) — use `unknown` + type guards
+- **No traditional enums** (Rule 3.5) — use `as const` objects + union types
+- **No recursion** (Rule 8.2) — use iterative algorithms with bounded loops
+- **Result pattern** (Rule 6.2) — functions that can fail return `Result<T, E>`, never throw for expected failures
+- **Branded types** (Rule 7.3) — domain primitives like `DicomTag`, `AETitle`, not raw strings
+- **Immutability** (Rule 7.1) — `readonly` by default, explicit mutations via ChangeSet
+- **Mandatory timeouts** (Rule 4.2) — all async operations have configurable timeouts
+- **95% coverage** (Rule 9.1) — enforced by vitest config
+- **Exhaustive switches** (Rule 8.3) — `default: assertUnreachable(x)` in all switch statements
+- **Functions <= 40 lines** (Rule 8.4) — warn, with skip for blank lines and comments
+- **TSDoc on all public APIs** (Rule 10.1)
 
 ## Architecture
 
-### Core Pattern: DCMProcess → Child Process Spawning
+### Current State (Phase 2 — Core Infrastructure Complete)
 
-`DCMProcess` (extends `EventEmitter`) is the base class. It manages spawning DCMTK binaries via `child_process.spawn()` / `exec()` and uses `tree-kill` for cleanup. All DCMTK wrapper classes inherit from it:
+- `src/types.ts` — `Result<T, E>`, `ok()`, `err()`, `assertUnreachable()`, `DcmtkProcessResult`, `ExecOptions`, `SpawnOptions`, `ProcessLine`
+- `src/brands.ts` — Branded types: `DicomTag`, `AETitle`, `DicomTagPath`, `SOPClassUID`, `TransferSyntaxUID`, `DicomFilePath`, `Port` + factory functions
+- `src/constants.ts` — Timeouts, PDU sizes, platform paths, required binaries, buffer limits
+- `src/validation.ts` — Zod schemas + parse functions bridging to branded types
+- `src/findDcmtkPath.ts` — Platform-aware DCMTK binary discovery with caching
+- `src/exec.ts` — `execCommand()` + `spawnCommand()` for short-lived processes
+- `src/DcmtkProcess.ts` — Base class for long-lived processes (typed EventEmitter, Disposable)
+- `src/parsers/EventPattern.ts` — Pattern interface definitions
+- `src/parsers/LineParser.ts` — Line-by-line output parser with multi-line block support
+- `src/index.ts` — barrel export for all Phase 2 modules
 
-```
-DCMProcess
-├── EchoSCU      (C-ECHO client)
-├── StoreSCP     (Storage server)
-├── StoreSCU     (Storage client)
-├── DCMSend      (DICOM sender)
-├── DCMRecv      (DICOM receiver)
-└── DCM2XML      (DICOM→XML conversion)
-```
+### Target Architecture (see PLAN.md)
 
-Some wrappers (`dcm2json.js`, `dcm2xml.js`, `dcmconv.js`, `dcmdump.js`, `dcmodify.js`) are standalone functions rather than classes.
+- **Short-lived tools**: Pure async functions returning `Result<T>` (one per DCMTK binary)
+- **Long-lived servers**: Classes extending `DcmtkProcess` with typed EventEmitter, Disposable
+- **DICOM data layer**: Immutable `DicomDataset` + explicit `ChangeSet` + `DicomFile` I/O
+- **Branded types**: `DicomTag`, `AETitle`, `Port`, `DicomTagPath`, `SOPClassUID`, `DicomFilePath`
 
-### Stream Parsing Pipeline
+### Toolchain
 
-DCMTK binaries produce verbose stdout/stderr output. The parsing system processes this into structured events:
+- **TypeScript** 5.8+ with `erasableSyntaxOnly`, maximum strictness (`tsconfig.json`)
+- **tsup** for dual CJS+ESM build with DTS generation (`tsup.config.ts`, uses `tsconfig.build.json`)
+- **Vitest** for testing with v8 coverage (`vitest.config.ts`)
+- **ESLint 9** flat config with typescript-eslint type-checked rules (`eslint.config.mjs`)
+- **Prettier** for formatting (`.prettierrc`)
+- **Husky** + **lint-staged** for pre-commit hooks
+- **pnpm** as package manager
 
-1. **DCMTKParser** (`src/parsers/DCMTKParser.js`) — buffers raw output, splits by newline, matches against event patterns
-2. **DCMTKEvent** (`src/parsers/DCMTKEvent.js`) — defines a single parseable pattern (regex + processor function), supports both single-line and multi-line block parsing (with header/footer markers and 1s timeout)
-3. **Event definitions** (`src/events/index.js`) — 90+ predefined regex patterns for DCMTK output (association events, DIMSE messages, status updates, etc.)
+## Test Layout (Hybrid)
 
-Parsed results are emitted as events on the DCMProcess instance.
+- **Colocated unit tests** in `src/` (e.g., `src/types.test.ts` next to `src/types.ts`)
+- **Fuzz/integration/type tests** in `test/` (planned, not yet created)
+- Test files excluded from build via `tsconfig.build.json`
+- Only `dist/` ships in the npm package
 
-### DICOM Data Layer (WIP)
+## Key Files
 
-- **DicomObject** (`src/dcmdata/DicomObject.js`) — wraps parsed DICOM data, tracks modifications/inserts, supports nested tag path access like `(0040,0275).(0008,1110).(0008,1155)[0]`
-- **DicomElement** (`src/dcmdata/DicomElement.js`) — represents individual DICOM elements with VR-aware handling
-- **DicomDictionary** (`src/dcmdata/DicomDictionary.js`) — tag lookup from `src/configs/dicom.dic.json`
-- **VR_DEFINITIONS** (`src/dcmdata/VR_DEFINITIONS.js`) — DICOM Value Representation type definitions (27+ types with validators)
-
-### Platform Detection
-
-`src/findDCMTK.js` locates DCMTK binaries cross-platform. On Windows, appends `.exe`. Sets `process.env.DCMTK_*` for each discovered binary (60+ tools).
-
-## Test Structure
-
-- `tests/dcmdata/` — conversion tests (DCM2JSON, DCM2XML, DicomObject)
-- `tests/dcmnet/` — network operation integration tests (require DCMTK binaries)
-- `tests/parsers/` — unit tests for output parsers
-- `tests/manual/` — exploratory/manual tests (not run by `yarn test`)
-- `dicomSamples/` — sample `.dcm` files used by tests
-- Test output written to `output/tests/`
+| File                                                              | Purpose                                                                                       |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `PLAN.md`                                                         | Full multi-phase build plan                                                                   |
+| `docs/TypeScript Coding Standard for Mission-Critical Systems.md` | Governing coding standard                                                                     |
+| `docs/adr/`                                                       | Architecture Decision Records                                                                 |
+| `_configs/`                                                       | DCMTK config files preserved from old project (to be incorporated as `src/data/` in Phase 3+) |
+| `dicomSamples/`                                                   | Sample .dcm files for future integration tests                                                |
