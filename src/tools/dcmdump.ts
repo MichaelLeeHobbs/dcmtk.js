@@ -73,7 +73,9 @@ function buildArgs(inputPath: string, options?: DcmdumpOptions): string[] {
     }
 
     if (options?.searchTag !== undefined) {
-        args.push('+P', options.searchTag);
+        // Strip parentheses: dcmdump expects "gggg,eeee" not "(gggg,eeee)"
+        const tag = options.searchTag.replace(/[()]/g, '');
+        args.push('+P', tag);
     }
 
     if (options?.printValues === true) {

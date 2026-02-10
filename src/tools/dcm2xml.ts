@@ -31,7 +31,7 @@ type Dcm2xmlCharsetValue = (typeof Dcm2xmlCharset)[keyof typeof Dcm2xmlCharset];
 
 /** Options for {@link dcm2xml}. */
 interface Dcm2xmlOptions extends ToolBaseOptions {
-    /** Include namespace declaration in XML output. Defaults to true. */
+    /** Include namespace declaration in XML output. Defaults to false. */
     readonly namespace?: boolean | undefined;
     /** Character set for XML output. Defaults to 'utf8'. */
     readonly charset?: Dcm2xmlCharsetValue | undefined;
@@ -69,7 +69,7 @@ const Dcm2xmlOptionsSchema = z
 function buildArgs(inputPath: string, options?: Dcm2xmlOptions): string[] {
     const args: string[] = [];
 
-    if (options?.namespace === false) {
+    if (options?.namespace === true) {
         args.push('+Xn');
     }
 

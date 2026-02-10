@@ -47,8 +47,8 @@ describe('dcm2xml()', () => {
         expect(mockedExec).toHaveBeenCalledWith('/usr/local/bin/dcm2xml', ['/path/to/test.dcm'], expect.objectContaining({ timeoutMs: 30000 }));
     });
 
-    it('passes +Xn flag when namespace is false', async () => {
-        await dcm2xml('/path/to/test.dcm', { namespace: false });
+    it('passes +Xn flag when namespace is true', async () => {
+        await dcm2xml('/path/to/test.dcm', { namespace: true });
 
         expect(mockedExec).toHaveBeenCalledWith('/usr/local/bin/dcm2xml', ['+Xn', '/path/to/test.dcm'], expect.any(Object));
     });

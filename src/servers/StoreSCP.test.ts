@@ -60,7 +60,7 @@ describe('StoreSCP', () => {
                 aeTitle: 'STORESCP',
                 outputDirectory: '/tmp/received',
                 configFile: '/etc/storescp.cfg',
-                preferredTransferSyntax: 'accept-all',
+                configProfile: 'Default',
                 sortByStudy: true,
                 sortByStudyUID: true,
                 sortByPatientName: true,

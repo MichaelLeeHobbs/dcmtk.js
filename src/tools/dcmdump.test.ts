@@ -53,7 +53,7 @@ describe('dcmdump()', () => {
     it('passes search tag flag', async () => {
         await dcmdump('/path/to/test.dcm', { searchTag: '(0010,0010)' });
 
-        expect(mockedExec).toHaveBeenCalledWith('/usr/local/bin/dcmdump', ['+P', '(0010,0010)', '/path/to/test.dcm'], expect.any(Object));
+        expect(mockedExec).toHaveBeenCalledWith('/usr/local/bin/dcmdump', ['+P', '0010,0010', '/path/to/test.dcm'], expect.any(Object));
     });
 
     it('passes allTags flag', async () => {

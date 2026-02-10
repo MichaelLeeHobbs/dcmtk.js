@@ -68,9 +68,11 @@ interface StoreSCPOptions {
     readonly aeTitle?: string | undefined;
     /** Output directory for received files. */
     readonly outputDirectory?: string | undefined;
-    /** Path to a configuration file. */
+    /** Path to an association negotiation configuration file. */
     readonly configFile?: string | undefined;
-    /** Preferred transfer syntax. */
+    /** Profile name within the configuration file. */
+    readonly configProfile?: string | undefined;
+    /** Preferred transfer syntax (not valid with configFile). */
     readonly preferredTransferSyntax?: PreferredTransferSyntaxValue | undefined;
     /** Sort studies into subdirectories. */
     readonly sortByStudy?: boolean | undefined;
@@ -114,6 +116,7 @@ const StoreSCPOptionsSchema = z
         aeTitle: z.string().min(1).max(16).optional(),
         outputDirectory: z.string().min(1).optional(),
         configFile: z.string().min(1).optional(),
+        configProfile: z.string().min(1).optional(),
         preferredTransferSyntax: z.enum(['little-endian', 'big-endian', 'implicit', 'accept-all']).optional(),
         sortByStudy: z.boolean().optional(),
         sortByStudyUID: z.boolean().optional(),
@@ -146,8 +149,8 @@ function buildArgs(options: StoreSCPOptions): string[] {
     if (options.aeTitle !== undefined) {
         args.push('--aetitle', options.aeTitle);
     }
-    if (options.configFile !== undefined) {
-        args.push('--config-file', options.configFile);
+    if (options.configFile !== undefined && options.configProfile !== undefined) {
+        args.push('--config-file', options.configFile, options.configProfile);
     }
 
     buildTransferSyntaxArgs(args, options);
@@ -169,7 +172,7 @@ function buildTransferSyntaxArgs(args: string[], options: StoreSCPOptions): void
     } else if (options.preferredTransferSyntax === 'implicit') {
         args.push('+xi');
     } else if (options.preferredTransferSyntax === 'accept-all') {
-        args.push('-xf');
+        args.push('+xa');
     }
 }
 

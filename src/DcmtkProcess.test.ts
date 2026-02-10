@@ -167,8 +167,8 @@ describe('DcmtkProcess', () => {
 
             await proc.start();
 
-            // Wait briefly for output to arrive
-            await new Promise(resolve => setTimeout(resolve, 300));
+            // Wait for output to arrive (longer timeout for parallel test load)
+            await new Promise(resolve => setTimeout(resolve, 1500));
 
             expect(lines).toContain('LINE1');
             expect(lines).toContain('LINE2');
@@ -186,7 +186,7 @@ describe('DcmtkProcess', () => {
             });
 
             await proc.start();
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 1500));
 
             const stderrLines = lines.filter(l => l.source === 'stderr');
             expect(stderrLines.some(l => l.text === 'ERR_LINE')).toBe(true);

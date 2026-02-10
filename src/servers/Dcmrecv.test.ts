@@ -66,6 +66,7 @@ describe('Dcmrecv', () => {
                 aeTitle: 'DCMRECV',
                 outputDirectory: '/tmp/received',
                 configFile: '/etc/dcmrecv.cfg',
+                configProfile: 'Default',
                 subdirectory: 'series-date',
                 filenameMode: 'unique',
                 filenameExtension: '.dcm',

@@ -312,23 +312,15 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
     }
 
     private processLines(source: LineSource, bufferKey: 'stdoutBuffer' | 'stderrBuffer'): void {
-        const buffer = this[bufferKey];
-        let newlineIdx = buffer.indexOf('\n');
+        let newlineIdx = this[bufferKey].indexOf('\n');
 
         // Iterative line extraction — no recursion (Rule 8.2)
         while (newlineIdx !== -1) {
-            const line = buffer.substring(0, newlineIdx).replace(/\r$/, '');
-            this[bufferKey] = buffer.substring(newlineIdx + 1);
+            const current = this[bufferKey];
+            const line = current.substring(0, newlineIdx).replace(/\r$/, '');
+            this[bufferKey] = current.substring(newlineIdx + 1);
             this.emit('line', { source, text: line });
-
-            // Re-read buffer after mutation
-            const remaining = this[bufferKey];
-            newlineIdx = remaining.indexOf('\n');
-            if (newlineIdx === -1) {
-                break;
-            }
-            // Update for next iteration
-            this[bufferKey] = remaining;
+            newlineIdx = this[bufferKey].indexOf('\n');
         }
     }
 }

@@ -82,8 +82,10 @@ interface DcmrecvOptions {
     readonly aeTitle?: string | undefined;
     /** Output directory for received files. */
     readonly outputDirectory?: string | undefined;
-    /** Path to a configuration file. */
+    /** Path to an association negotiation configuration file. */
     readonly configFile?: string | undefined;
+    /** Profile name within the configuration file. */
+    readonly configProfile?: string | undefined;
     /** Subdirectory generation mode. */
     readonly subdirectory?: SubdirectoryModeValue | undefined;
     /** Filename generation mode. */
@@ -112,6 +114,7 @@ const DcmrecvOptionsSchema = z
         aeTitle: z.string().min(1).max(16).optional(),
         outputDirectory: z.string().min(1).optional(),
         configFile: z.string().min(1).optional(),
+        configProfile: z.string().min(1).optional(),
         subdirectory: z.enum(['none', 'series-date']).optional(),
         filenameMode: z.enum(['default', 'unique', 'short-unique', 'system-time']).optional(),
         filenameExtension: z.string().min(1).optional(),
@@ -139,8 +142,8 @@ function buildArgs(options: DcmrecvOptions): string[] {
     if (options.outputDirectory !== undefined) {
         args.push('--output-directory', options.outputDirectory);
     }
-    if (options.configFile !== undefined) {
-        args.push('--config-file', options.configFile);
+    if (options.configFile !== undefined && options.configProfile !== undefined) {
+        args.push('--config-file', options.configFile, options.configProfile);
     }
 
     addFilenameArgs(args, options);

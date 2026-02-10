@@ -56,7 +56,7 @@ async function tryXmlPath(inputPath: string, timeoutMs: number, signal?: AbortSi
         return err(xmlBinary.error);
     }
 
-    const xmlResult = await execCommand(xmlBinary.value, [inputPath], { timeoutMs, signal });
+    const xmlResult = await execCommand(xmlBinary.value, ['-nat', inputPath], { timeoutMs, signal });
     if (!xmlResult.ok) {
         return err(xmlResult.error);
     }
