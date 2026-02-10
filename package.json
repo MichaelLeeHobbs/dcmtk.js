@@ -46,7 +46,8 @@
         "version:major": "pnpm version major",
         "version:minor": "pnpm version minor",
         "version:patch": "pnpm version patch",
-        "dry-run": "npm pack --dry-run"
+        "dry-run": "npm pack --dry-run",
+        "generate": "tsx scripts/generateDictionary.ts"
     },
     "lint-staged": {
         "*.{ts,tsx,js,jsx}": [
@@ -70,6 +71,7 @@
         "prettier": "^3.4.0",
         "rimraf": "^6.0.0",
         "tsup": "^8.3.0",
+        "tsx": "^4.21.0",
         "typescript": "^5.8.0",
         "typescript-eslint": "^8.21.0",
         "vitest": "^3.0.0"
@@ -80,6 +82,7 @@
         ]
     },
     "dependencies": {
+        "fast-xml-parser": "^5.3.5",
         "tree-kill": "^1.2.2",
         "zod": "^4.3.6"
     }

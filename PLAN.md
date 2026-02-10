@@ -468,8 +468,11 @@ Modeled after the production-proven architectural patterns in d-dart, with the l
 
 **Shared utilities:**
 
-- [ ] `src/tools/_repairJson.ts` — fix malformed dcm2json output (unquoted numeric arrays in DS/IS VR)
-- [ ] `src/tools/_xmlToJson.ts` — convert dcm2xml XML output to DICOM JSON model
+- [x] `src/tools/_repairJson.ts` — fix malformed dcm2json output (unquoted numeric arrays in DS/IS VR)
+- [x] `src/tools/_xmlToJson.ts` — convert dcm2xml XML output to DICOM JSON model
+- [x] `src/tools/_resolveBinary.ts` — binary path resolution helper
+- [x] `src/tools/_toolTypes.ts` — ToolBaseOptions interface
+- [x] `src/tools/_toolError.ts` — standardized error factory
 
 ### 3.2 dcmnet Module — Client Tools (7 short-lived)
 
@@ -619,10 +622,10 @@ The d-dart `DicomJson` + `DicomObject` pattern was designed 10 years ago. This r
 
 ### 5.2 Tag Path Utilities
 
-- [ ] Create `src/dicom/tagPath.ts`:
-    - `parseTagPath(input: string): Result<DicomTagPath>` — validates and brands
-    - `tagPathToSegments(path: DicomTagPath): ReadonlyArray<TagSegment>` — iterative parser (no regex with recursion)
+- [x] Create `src/dicom/tagPath.ts`:
+    - `tagPathToSegments(path: DicomTagPath): ReadonlyArray<TagSegment>` — iterative parser (no recursion)
     - `segmentsToModifyPath(segments: ReadonlyArray<TagSegment>): string` — dcmodify-compatible format
+    - `segmentsToString(segments: ReadonlyArray<TagSegment>): string` — canonical display format
     ```typescript
     interface TagSegment {
         readonly tag: DicomTag;
@@ -630,11 +633,11 @@ The d-dart `DicomJson` + `DicomObject` pattern was designed 10 years ago. This r
         readonly isWildcard?: boolean; // [*] for findValues
     }
     ```
-- [ ] Tests with fuzz testing via fast-check (Rule 9.2)
+- [x] Tests (21 tests: parse, serialize, round-trip, wildcards, edge cases; fuzz via fast-check deferred to Phase 8)
 
 ### 5.3 VR Definitions & DICOM Dictionary
 
-- [ ] Create `src/dicom/vr.ts` — Value Representation definitions using `as const`:
+- [x] Create `src/dicom/vr.ts` — Value Representation definitions using `as const`:
 
     ```typescript
     const VR = {
@@ -685,16 +688,16 @@ The d-dart `DicomJson` + `DicomObject` pattern was designed 10 years ago. This r
     } as const;
     ```
 
-- [ ] VR metadata: max length, padding char, validation pattern
-- [ ] Create `src/dicom/dictionary.ts` — tag lookup from shipped JSON
-- [ ] Tests
+- [x] VR metadata: max length, padding char, fixed-length flag, category (VR_META record)
+- [x] Create `src/dicom/dictionary.ts` — tag lookup from shipped JSON (4,902 entries)
+- [x] Tests (34 VR tests, 20 dictionary tests)
 
 ### 5.4 Generated Data Files & Scripts
 
-- [ ] Create `scripts/generateDictionary.ts` — DCMTK dicom.dic → `src/data/dicom.dic.json`
-- [ ] Create `scripts/generateSopClasses.ts` — DCMTK headers → `src/data/sopClasses.ts`
-- [ ] Ship generated files committed to repo
-- [ ] Add `generate` npm script
+- [x] Create `scripts/generateDictionary.ts` — reshapes `_configs/dicom.dic.json` → `src/data/dictionary.json`
+- [x] Create `src/data/sopClasses.ts` — curated ~70 SOP class UIDs with reverse lookup
+- [x] Ship generated files committed to repo (`src/data/dictionary.json`, 4,902 entries)
+- [x] Add `generate` npm script, `tsx` devDependency
 - [ ] Document regeneration process (on DCMTK version upgrade)
 
 ### 5.5 DicomDataset — Immutable Data Representation
