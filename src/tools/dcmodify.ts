@@ -27,8 +27,12 @@ interface TagModification {
 
 /** Options for {@link dcmodify}. */
 interface DcmodifyOptions extends ToolBaseOptions {
-    /** Tag modifications to apply. At least one required. */
-    readonly modifications: readonly TagModification[];
+    /** Tag modifications to apply. */
+    readonly modifications?: readonly TagModification[] | undefined;
+    /** Tag paths to erase (passed as `-e path`). */
+    readonly erasures?: readonly string[] | undefined;
+    /** Erase all private tags (uses `-ep` flag). */
+    readonly erasePrivateTags?: boolean | undefined;
     /** Do not create backup (.bak) file. Defaults to true. */
     readonly noBackup?: boolean | undefined;
     /** Insert tag if it doesn't exist (uses -i flag). Defaults to false. */
@@ -41,8 +45,11 @@ interface DcmodifyResult {
     readonly filePath: string;
 }
 
+/** Matches a single tag or a dotted tag path: (XXXX,XXXX) or (XXXX,XXXX)[N].(XXXX,XXXX) */
+const TAG_OR_PATH_PATTERN = /^\([0-9A-Fa-f]{4},[0-9A-Fa-f]{4}\)(\[\d+\](\.\([0-9A-Fa-f]{4},[0-9A-Fa-f]{4}\)(\[\d+\])?)*)?$/;
+
 const TagModificationSchema = z.object({
-    tag: z.string().regex(/^\([0-9A-Fa-f]{4},[0-9A-Fa-f]{4}\)$/),
+    tag: z.string().regex(TAG_OR_PATH_PATTERN),
     value: z.string(),
 });
 
@@ -50,11 +57,16 @@ const DcmodifyOptionsSchema = z
     .object({
         timeoutMs: z.number().int().positive().optional(),
         signal: z.instanceof(AbortSignal).optional(),
-        modifications: z.array(TagModificationSchema).min(1),
+        modifications: z.array(TagModificationSchema).optional().default([]),
+        erasures: z.array(z.string()).optional(),
+        erasePrivateTags: z.boolean().optional(),
         noBackup: z.boolean().optional(),
         insertIfMissing: z.boolean().optional(),
     })
-    .strict();
+    .strict()
+    .refine(data => data.modifications.length > 0 || (data.erasures !== undefined && data.erasures.length > 0) || data.erasePrivateTags === true, {
+        message: 'At least one of modifications, erasures, or erasePrivateTags is required',
+    });
 
 /**
  * Builds dcmodify command-line arguments from validated options.
@@ -67,9 +79,20 @@ function buildArgs(inputPath: string, options: DcmodifyOptions): string[] {
     }
 
     const flag = options.insertIfMissing === true ? '-i' : '-m';
+    const modifications = options.modifications ?? [];
 
-    for (const mod of options.modifications) {
+    for (const mod of modifications) {
         args.push(flag, `${mod.tag}=${mod.value}`);
+    }
+
+    if (options.erasures !== undefined) {
+        for (const erasure of options.erasures) {
+            args.push('-e', erasure);
+        }
+    }
+
+    if (options.erasePrivateTags === true) {
+        args.push('-ep');
     }
 
     args.push(inputPath);

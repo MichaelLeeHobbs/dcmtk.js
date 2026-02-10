@@ -134,7 +134,16 @@ describe('dcmodify()', () => {
         }
     });
 
-    it('returns error for empty modifications', async () => {
+    it('returns error when no operations provided', async () => {
+        const result = await dcmodify('/path/to/test.dcm', {});
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.message).toContain('invalid options');
+        }
+    });
+
+    it('returns error for empty modifications with no erasures', async () => {
         const result = await dcmodify('/path/to/test.dcm', {
             modifications: [],
         });
@@ -154,5 +163,62 @@ describe('dcmodify()', () => {
         if (!result.ok) {
             expect(result.error.message).toContain('invalid options');
         }
+    });
+
+    it('generates -e flags for erasures', async () => {
+        await dcmodify('/path/to/test.dcm', {
+            erasures: ['(0010,0010)', '(0010,0020)'],
+        });
+
+        expect(mockedSpawn).toHaveBeenCalledWith(
+            '/usr/local/bin/dcmodify',
+            ['-nb', '-e', '(0010,0010)', '-e', '(0010,0020)', '/path/to/test.dcm'],
+            expect.any(Object)
+        );
+    });
+
+    it('generates -ep flag for erasePrivateTags', async () => {
+        await dcmodify('/path/to/test.dcm', {
+            erasePrivateTags: true,
+        });
+
+        expect(mockedSpawn).toHaveBeenCalledWith('/usr/local/bin/dcmodify', ['-nb', '-ep', '/path/to/test.dcm'], expect.any(Object));
+    });
+
+    it('supports erasure-only operation (no modifications)', async () => {
+        const result = await dcmodify('/path/to/test.dcm', {
+            erasures: ['(0010,0010)'],
+        });
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.value.filePath).toBe('/path/to/test.dcm');
+        }
+    });
+
+    it('combines modifications, erasures, and erasePrivateTags', async () => {
+        await dcmodify('/path/to/test.dcm', {
+            modifications: [{ tag: '(0010,0010)', value: 'Anonymous' }],
+            erasures: ['(0010,0020)'],
+            erasePrivateTags: true,
+        });
+
+        expect(mockedSpawn).toHaveBeenCalledWith(
+            '/usr/local/bin/dcmodify',
+            ['-nb', '-m', '(0010,0010)=Anonymous', '-e', '(0010,0020)', '-ep', '/path/to/test.dcm'],
+            expect.any(Object)
+        );
+    });
+
+    it('accepts path-format tags for modifications', async () => {
+        await dcmodify('/path/to/test.dcm', {
+            modifications: [{ tag: '(0040,A730)[0].(0040,A160)', value: 'Test' }],
+        });
+
+        expect(mockedSpawn).toHaveBeenCalledWith(
+            '/usr/local/bin/dcmodify',
+            ['-nb', '-m', '(0040,A730)[0].(0040,A160)=Test', '/path/to/test.dcm'],
+            expect.any(Object)
+        );
     });
 });

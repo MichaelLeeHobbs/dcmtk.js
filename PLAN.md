@@ -744,8 +744,8 @@ The d-dart `DicomJson` + `DicomObject` pattern was designed 10 years ago. This r
 
 ### 5.6 ChangeSet — Explicit Mutation Tracking
 
-- [ ] Create `src/dicom/ChangeSet.ts`
-- [ ] Records intended modifications separately from data:
+- [x] Create `src/dicom/ChangeSet.ts`
+- [x] Records intended modifications separately from data:
 
     ```typescript
     class ChangeSet {
@@ -775,14 +775,14 @@ The d-dart `DicomJson` + `DicomObject` pattern was designed 10 years ago. This r
     }
     ```
 
-- [ ] Sanitizes non-printable characters on setValue (but not for binary VRs)
-- [ ] Immutable — each method returns a new `ChangeSet` instance
-- [ ] Tests
+- [x] Sanitizes non-printable characters on setValue (but not for binary VRs)
+- [x] Immutable — each method returns a new `ChangeSet` instance
+- [x] Tests
 
 ### 5.7 DicomFile — File I/O Integration
 
-- [ ] Create `src/dicom/DicomFile.ts`
-- [ ] Combines DicomDataset + ChangeSet + filesystem path:
+- [x] Create `src/dicom/DicomFile.ts`
+- [x] Combines DicomDataset + ChangeSet + filesystem path:
 
     ```typescript
     class DicomFile {
@@ -816,17 +816,17 @@ The d-dart `DicomJson` + `DicomObject` pattern was designed 10 years ago. This r
     }
     ```
 
-- [ ] `writeAs()` internally: copy file → apply dcmodify → return new path
-- [ ] All file operations have timeouts (Rule 4.2)
-- [ ] All file handles cleaned up in `finally` (Rule 5.1)
-- [ ] Tests
+- [x] `writeAs()` internally: copy file → apply dcmodify → return new path
+- [x] All file operations have timeouts (Rule 4.2)
+- [x] All file handles cleaned up in `finally` (Rule 5.1)
+- [x] Tests
 
 ### 5.8 DICOM XML Parsing
 
-- [ ] Create `src/dicom/xmlToJson.ts` — convert dcm2xml XML output → DICOM JSON model
-- [ ] Iterative XML traversal (Rule 8.2)
-- [ ] Handles all VR types, nested sequences, binary data encoding
-- [ ] Tests
+- [x] Create `src/dicom/xmlToJson.ts` — convert dcm2xml XML output → DICOM JSON model
+- [x] Iterative XML traversal (Rule 8.2)
+- [x] Handles all VR types, nested sequences, binary data encoding
+- [x] Tests
 
 ---
 

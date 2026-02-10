@@ -87,3 +87,13 @@ export type { TagSegment } from './dicom/tagPath';
 
 // DICOM dataset (Phase 5.5)
 export { DicomDataset } from './dicom/DicomDataset';
+
+// DICOM ChangeSet (Phase 5.6)
+export { ChangeSet } from './dicom/ChangeSet';
+
+// DICOM File I/O (Phase 5.7)
+export { DicomFile } from './dicom/DicomFile';
+export type { DicomFileOptions } from './dicom/DicomFile';
+
+// DICOM XML to JSON (Phase 5.8)
+export { xmlToJson } from './dicom/xmlToJson';
