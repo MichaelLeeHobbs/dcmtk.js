@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 dcmtk is a modern TypeScript library wrapping all 60+ DCMTK (DICOM Toolkit) C++ command-line binaries with type-safe APIs. Built to the standards defined in `docs/TypeScript Coding Standard for Mission-Critical Systems.md`. **Requires DCMTK installed on the system** (detected via `DCMTK_PATH` env var or known install locations).
 
-The full build plan is in `PLAN.md`. This project is being rewritten from the ground up in TypeScript (Phases 1-2 complete).
+The full build plan is in `PLAN.md`. All implementation phases (1-7) are complete.
 
 ## Commands
 
@@ -46,14 +46,14 @@ All code **shall** comply with `docs/TypeScript Coding Standard for Mission-Crit
 - **Branded types** (Rule 7.3) — domain primitives like `DicomTag`, `AETitle`, not raw strings
 - **Immutability** (Rule 7.1) — `readonly` by default, explicit mutations via ChangeSet
 - **Mandatory timeouts** (Rule 4.2) — all async operations have configurable timeouts
-- **95% coverage** (Rule 9.1) — enforced by vitest config
+- **95% coverage** (Rule 9.1) — enforced by vitest config; currently at 99.42%
 - **Exhaustive switches** (Rule 8.3) — `default: assertUnreachable(x)` in all switch statements
 - **Functions <= 40 lines** (Rule 8.4) — warn, with skip for blank lines and comments
 - **TSDoc on all public APIs** (Rule 10.1)
 
 ## Architecture
 
-### Current State (Phase 2 — Core Infrastructure Complete)
+### Core Infrastructure (`src/`)
 
 - `src/types.ts` — `Result<T, E>`, `ok()`, `err()`, `assertUnreachable()`, `DcmtkProcessResult`, `ExecOptions`, `SpawnOptions`, `ProcessLine`
 - `src/brands.ts` — Branded types: `DicomTag`, `AETitle`, `DicomTagPath`, `SOPClassUID`, `TransferSyntaxUID`, `DicomFilePath`, `Port` + factory functions
@@ -62,16 +62,46 @@ All code **shall** comply with `docs/TypeScript Coding Standard for Mission-Crit
 - `src/findDcmtkPath.ts` — Platform-aware DCMTK binary discovery with caching
 - `src/exec.ts` — `execCommand()` + `spawnCommand()` for short-lived processes
 - `src/DcmtkProcess.ts` — Base class for long-lived processes (typed EventEmitter, Disposable)
-- `src/parsers/EventPattern.ts` — Pattern interface definitions
-- `src/parsers/LineParser.ts` — Line-by-line output parser with multi-line block support
-- `src/index.ts` — barrel export for all Phase 2 modules
+- `src/parsers/` — `EventPattern` interface definitions, `LineParser` for line-by-line output parsing
 
-### Target Architecture (see PLAN.md)
+### Short-lived Tool Wrappers (`src/tools/`)
 
-- **Short-lived tools**: Pure async functions returning `Result<T>` (one per DCMTK binary)
-- **Long-lived servers**: Classes extending `DcmtkProcess` with typed EventEmitter, Disposable
-- **DICOM data layer**: Immutable `DicomDataset` + explicit `ChangeSet` + `DicomFile` I/O
-- **Branded types**: `DicomTag`, `AETitle`, `Port`, `DicomTagPath`, `SOPClassUID`, `DicomFilePath`
+48 async functions wrapping DCMTK binaries, organized by category:
+
+- **Data & Metadata** — `dcm2xml`, `dcm2json`, `dcmdump`, `dcmconv`, `dcmodify`, `dcmftest`, `dcmgpdir`, `dcmmkdir`
+- **File Conversion** — `xml2dcm`, `json2dcm`, `dump2dcm`, `img2dcm`, `pdf2dcm`, `dcm2pdf`, `cda2dcm`, `dcm2cda`, `stl2dcm`
+- **Compression** — `dcmcrle`, `dcmdrle`, `dcmencap`, `dcmdecap`, `dcmcjpeg`, `dcmdjpeg`
+- **Image Processing** — `dcmj2pnm`, `dcm2pnm`, `dcmscale`, `dcmquant`, `dcmdspfn`, `dcod2lum`, `dconvlum`
+- **Network** — `echoscu`, `dcmsend`, `storescu`, `findscu`, `movescu`, `getscu`, `termscu`
+- **Structured Reports** — `dsrdump`, `dsr2xml`, `xml2dsr`, `drtdump`
+- **Presentation State & Print** — `dcmpsmk`, `dcmpschk`, `dcmprscu`, `dcmpsprt`, `dcmp2pgm`, `dcmmkcrv`, `dcmmklut`
+
+### Long-lived Server Classes (`src/servers/`)
+
+- `Dcmrecv` — DICOM receiver (dcmrecv), C-STORE SCP
+- `StoreSCP` — Storage SCP (storescp), advanced options
+- `DcmprsCP` — Print Management SCP (dcmprscp)
+- `Dcmpsrcv` — Viewer network receiver (dcmpsrcv)
+
+### Event Definitions (`src/events/`)
+
+- Typed event patterns for each server: `dcmrecv.ts` (10), `storescp.ts` (12), `dcmprscp.ts` (7), `dcmpsrcv.ts` (12)
+
+### DICOM Data Layer (`src/dicom/`)
+
+- `DicomDataset` — Immutable dataset with typed accessors, path traversal, wildcard search
+- `ChangeSet` — Immutable builder for tag modifications and erasures
+- `DicomFile` — File I/O facade (open, apply changes, write copies)
+- `vr.ts` — 34 standard DICOM Value Representations
+- `dictionary.ts` — 4,902-entry DICOM tag dictionary
+- `tagPath.ts` — Tag path parsing and segment utilities
+- `xmlToJson.ts` — Re-export of XML-to-JSON conversion
+
+### Data Files (`src/data/`)
+
+- `dictionary.json` — Generated DICOM tag dictionary
+- `sopClasses.ts` — SOP Class UID to name mappings
+- `storescp.cfg` — Default storescp configuration
 
 ### Toolchain
 
@@ -86,16 +116,20 @@ All code **shall** comply with `docs/TypeScript Coding Standard for Mission-Crit
 ## Test Layout (Hybrid)
 
 - **Colocated unit tests** in `src/` (e.g., `src/types.test.ts` next to `src/types.ts`)
-- **Fuzz/integration/type tests** in `test/` (planned, not yet created)
+- **Type tests** in `test/` (type-level assertions for public API)
+- 1056 tests across 77 files, all passing
 - Test files excluded from build via `tsconfig.build.json`
 - Only `dist/` ships in the npm package
 
 ## Key Files
 
-| File                                                              | Purpose                                                                                       |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `PLAN.md`                                                         | Full multi-phase build plan                                                                   |
-| `docs/TypeScript Coding Standard for Mission-Critical Systems.md` | Governing coding standard                                                                     |
-| `docs/adr/`                                                       | Architecture Decision Records                                                                 |
-| `_configs/`                                                       | DCMTK config files preserved from old project (to be incorporated as `src/data/` in Phase 3+) |
-| `dicomSamples/`                                                   | Sample .dcm files for future integration tests                                                |
+| File                                                              | Purpose                                                           |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `PLAN.md`                                                         | Full multi-phase build plan                                       |
+| `docs/TypeScript Coding Standard for Mission-Critical Systems.md` | Governing coding standard                                         |
+| `docs/adr/`                                                       | Architecture Decision Records                                     |
+| `_configs/`                                                       | DCMTK config files (source for dictionary generation)             |
+| `src/data/`                                                       | Shipped data files (dictionary.json, sopClasses.ts, storescp.cfg) |
+| `scripts/`                                                        | Generation scripts (generateDictionary.ts)                        |
+| `dicomSamples/`                                                   | Sample .dcm files for integration tests                           |
+| `AI_README.md`                                                    | Condensed API reference for LLM context                           |
