@@ -702,9 +702,9 @@ The d-dart `DicomJson` + `DicomObject` pattern was designed 10 years ago. This r
 
 ### 5.5 DicomDataset — Immutable Data Representation
 
-- [ ] Create `src/dicom/DicomDataset.ts`
-- [ ] Wraps validated DICOM JSON as a deeply readonly structure (Rule 7.1)
-- [ ] **Immutable** — no setters. Reads only:
+- [x] Create `src/dicom/DicomDataset.ts`
+- [x] Wraps validated DICOM JSON as a deeply readonly structure (Rule 7.1)
+- [x] **Immutable** — no setters. Reads only:
 
     ```typescript
     class DicomDataset {
@@ -737,10 +737,10 @@ The d-dart `DicomJson` + `DicomObject` pattern was designed 10 years ago. This r
     }
     ```
 
-- [ ] Nested sequence traversal is **iterative** using a stack (Rule 8.2)
-- [ ] Person Name (PN) handling: Alphabetic/Ideographic/Phonetic components
-- [ ] Binary data handling: InlineBinary (base64), BulkDataURI
-- [ ] Tests with fuzz testing
+- [x] Nested sequence traversal is **iterative** using a stack (Rule 8.2)
+- [x] Person Name (PN) handling: Alphabetic/Ideographic/Phonetic components
+- [x] Binary data handling: InlineBinary (base64), BulkDataURI
+- [ ] Tests with fuzz testing (deferred to Phase 8)
 
 ### 5.6 ChangeSet — Explicit Mutation Tracking
 

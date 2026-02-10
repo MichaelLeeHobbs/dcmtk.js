@@ -84,3 +84,6 @@ export type { SOPClassName } from './data/sopClasses';
 // Tag path utilities (Phase 5.2)
 export { tagPathToSegments, segmentsToModifyPath, segmentsToString } from './dicom/tagPath';
 export type { TagSegment } from './dicom/tagPath';
+
+// DICOM dataset (Phase 5.5)
+export { DicomDataset } from './dicom/DicomDataset';
