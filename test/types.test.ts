@@ -19,8 +19,15 @@ import type {
     DcmprsCPEventMap,
     DcmpsrcvOptions,
     DcmpsrcvEventMap,
+    DcmQRSCPOptions,
+    DcmQRSCPEventMap,
+    WlmscpfsOptions,
+    WlmscpfsEventMap,
     EchoscuResult,
     DcmdumpResult,
+    DcmcjplsResult,
+    DcmdjplsResult,
+    DcmqridxResult,
     ToolBaseOptions,
     VRValue,
     DictionaryEntry,
@@ -31,6 +38,9 @@ import type {
     DatabaseReadyData,
     ReceiverListeningData,
     FileDeletedData,
+    QRListeningData,
+    QRCFindRequestData,
+    WlmCFindRequestData,
 } from '../src/index';
 import {
     ok,
@@ -42,6 +52,8 @@ import {
     StoreSCP,
     DcmprsCP,
     Dcmpsrcv,
+    DcmQRSCP,
+    Wlmscpfs,
     DicomDataset,
     ChangeSet,
     VR,
@@ -115,6 +127,21 @@ describe('Tool wrapper return types', () => {
     it('ToolBaseOptions has signal field', () => {
         expectTypeOf<ToolBaseOptions>().toHaveProperty('signal');
     });
+
+    it('DcmcjplsResult has expected shape', () => {
+        expectTypeOf<DcmcjplsResult>().toHaveProperty('outputPath');
+    });
+
+    it('DcmdjplsResult has expected shape', () => {
+        expectTypeOf<DcmdjplsResult>().toHaveProperty('outputPath');
+    });
+
+    it('DcmqridxResult is a discriminated union', () => {
+        const registerResult: DcmqridxResult = { mode: 'register' };
+        const printResult: DcmqridxResult = { mode: 'print', output: 'data' };
+        expectTypeOf(registerResult).toMatchTypeOf<DcmqridxResult>();
+        expectTypeOf(printResult).toMatchTypeOf<DcmqridxResult>();
+    });
 });
 
 describe('Server class static factory return types', () => {
@@ -136,6 +163,16 @@ describe('Server class static factory return types', () => {
     it('Dcmpsrcv.create returns Result<Dcmpsrcv>', () => {
         type CreateReturn = ReturnType<typeof Dcmpsrcv.create>;
         expectTypeOf<CreateReturn>().toMatchTypeOf<Result<Dcmpsrcv>>();
+    });
+
+    it('DcmQRSCP.create returns Result<DcmQRSCP>', () => {
+        type CreateReturn = ReturnType<typeof DcmQRSCP.create>;
+        expectTypeOf<CreateReturn>().toMatchTypeOf<Result<DcmQRSCP>>();
+    });
+
+    it('Wlmscpfs.create returns Result<Wlmscpfs>', () => {
+        type CreateReturn = ReturnType<typeof Wlmscpfs.create>;
+        expectTypeOf<CreateReturn>().toMatchTypeOf<Result<Wlmscpfs>>();
     });
 });
 
@@ -162,6 +199,21 @@ describe('Server event maps', () => {
         expectTypeOf<DcmpsrcvEventMap>().toHaveProperty('FILE_DELETED');
         expectTypeOf<DcmpsrcvEventMap>().toHaveProperty('TERMINATING');
     });
+
+    it('DcmQRSCPEventMap has Q/R events', () => {
+        expectTypeOf<DcmQRSCPEventMap>().toHaveProperty('LISTENING');
+        expectTypeOf<DcmQRSCPEventMap>().toHaveProperty('C_FIND_REQUEST');
+        expectTypeOf<DcmQRSCPEventMap>().toHaveProperty('C_MOVE_REQUEST');
+        expectTypeOf<DcmQRSCPEventMap>().toHaveProperty('C_GET_REQUEST');
+        expectTypeOf<DcmQRSCPEventMap>().toHaveProperty('CANNOT_START_LISTENER');
+    });
+
+    it('WlmscpfsEventMap has worklist events', () => {
+        expectTypeOf<WlmscpfsEventMap>().toHaveProperty('LISTENING');
+        expectTypeOf<WlmscpfsEventMap>().toHaveProperty('C_FIND_REQUEST');
+        expectTypeOf<WlmscpfsEventMap>().toHaveProperty('ECHO_REQUEST');
+        expectTypeOf<WlmscpfsEventMap>().toHaveProperty('CANNOT_START_LISTENER');
+    });
 });
 
 describe('Server options types', () => {
@@ -179,6 +231,18 @@ describe('Server options types', () => {
 
     it('DcmpsrcvOptions requires configFile', () => {
         expectTypeOf<DcmpsrcvOptions>().toHaveProperty('configFile');
+    });
+
+    it('DcmQRSCPOptions requires configFile', () => {
+        expectTypeOf<DcmQRSCPOptions>().toHaveProperty('configFile');
+    });
+
+    it('WlmscpfsOptions requires port', () => {
+        expectTypeOf<WlmscpfsOptions>().toHaveProperty('port');
+    });
+
+    it('WlmscpfsOptions requires worklistDirectory', () => {
+        expectTypeOf<WlmscpfsOptions>().toHaveProperty('worklistDirectory');
     });
 });
 
@@ -204,6 +268,18 @@ describe('Event data types', () => {
 
     it('FileDeletedData has filePath', () => {
         expectTypeOf<FileDeletedData>().toHaveProperty('filePath');
+    });
+
+    it('QRListeningData has port', () => {
+        expectTypeOf<QRListeningData>().toHaveProperty('port');
+    });
+
+    it('QRCFindRequestData has raw', () => {
+        expectTypeOf<QRCFindRequestData>().toHaveProperty('raw');
+    });
+
+    it('WlmCFindRequestData has raw', () => {
+        expectTypeOf<WlmCFindRequestData>().toHaveProperty('raw');
     });
 });
 

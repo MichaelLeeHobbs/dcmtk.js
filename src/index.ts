@@ -110,6 +110,9 @@ export type { DcmgpdirOptions, DcmgpdirResult } from './tools/dcmgpdir';
 export { dcmmkdir } from './tools/dcmmkdir';
 export type { DcmmkdirOptions, DcmmkdirResult } from './tools/dcmmkdir';
 
+export { dcmqridx } from './tools/dcmqridx';
+export type { DcmqridxOptions, DcmqridxResult } from './tools/dcmqridx';
+
 // ---------------------------------------------------------------------------
 // Short-lived tool wrappers — File Conversion
 // ---------------------------------------------------------------------------
@@ -162,6 +165,12 @@ export type { DcmcjpegOptions, DcmcjpegResult } from './tools/dcmcjpeg';
 
 export { dcmdjpeg, ColorConversion } from './tools/dcmdjpeg';
 export type { DcmdjpegOptions, DcmdjpegResult, ColorConversionValue } from './tools/dcmdjpeg';
+
+export { dcmcjpls } from './tools/dcmcjpls';
+export type { DcmcjplsOptions, DcmcjplsResult } from './tools/dcmcjpls';
+
+export { dcmdjpls, JplsColorConversion } from './tools/dcmdjpls';
+export type { DcmdjplsOptions, DcmdjplsResult, JplsColorConversionValue } from './tools/dcmdjpls';
 
 // ---------------------------------------------------------------------------
 // Short-lived tool wrappers — Image Processing
@@ -296,6 +305,29 @@ export type {
     ReceiverConfigErrorData,
 } from './events/dcmpsrcv';
 
+export { DcmqrscpEvent, DCMQRSCP_PATTERNS, DCMQRSCP_FATAL_EVENTS } from './events/dcmqrscp';
+export type {
+    DcmqrscpEventValue,
+    QRListeningData,
+    QRAssociationReceivedData,
+    QRAssociationAcknowledgedData,
+    QRCFindRequestData,
+    QRCMoveRequestData,
+    QRCGetRequestData,
+    QRCStoreRequestData,
+    QRCannotStartListenerData,
+} from './events/dcmqrscp';
+
+export { WlmscpfsEvent, WLMSCPFS_PATTERNS, WLMSCPFS_FATAL_EVENTS } from './events/wlmscpfs';
+export type {
+    WlmscpfsEventValue,
+    WlmListeningData,
+    WlmAssociationReceivedData,
+    WlmAssociationAcknowledgedData,
+    WlmCFindRequestData,
+    WlmCannotStartListenerData,
+} from './events/wlmscpfs';
+
 // ---------------------------------------------------------------------------
 // Long-lived server classes
 // ---------------------------------------------------------------------------
@@ -311,3 +343,9 @@ export type { DcmprsCPOptions, DcmprsCPEventMap } from './servers/DcmprsCP';
 
 export { Dcmpsrcv } from './servers/Dcmpsrcv';
 export type { DcmpsrcvOptions, DcmpsrcvEventMap } from './servers/Dcmpsrcv';
+
+export { DcmQRSCP } from './servers/DcmQRSCP';
+export type { DcmQRSCPOptions, DcmQRSCPEventMap } from './servers/DcmQRSCP';
+
+export { Wlmscpfs } from './servers/Wlmscpfs';
+export type { WlmscpfsOptions, WlmscpfsEventMap } from './servers/Wlmscpfs';
