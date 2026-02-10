@@ -24,7 +24,6 @@
         "declarationMap": true,
         "sourceMap": true,
         "outDir": "./dist",
-        "rootDir": "./src",
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
@@ -32,6 +31,6 @@
         "allowSyntheticDefaultImports": true,
         "skipLibCheck": false
     },
-    "include": ["src/**/*"],
+    "include": ["src/**/*", "test/**/*"],
     "exclude": ["node_modules", "dist", "coverage"]
 }
