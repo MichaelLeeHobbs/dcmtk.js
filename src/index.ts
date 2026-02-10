@@ -226,3 +226,25 @@ export type { DicomFileOptions } from './dicom/DicomFile';
 
 // DICOM XML to JSON (Phase 5.8)
 export { xmlToJson } from './dicom/xmlToJson';
+
+// Event definitions (Phase 4.1)
+export { DcmrecvEvent, DCMRECV_PATTERNS, DCMRECV_FATAL_EVENTS } from './events/dcmrecv';
+export type {
+    DcmrecvEventValue,
+    AssociationReceivedData,
+    AssociationAcknowledgedData,
+    CStoreRequestData,
+    StoredFileData,
+    RefusingAssociationData,
+    CannotStartListenerData,
+} from './events/dcmrecv';
+
+export { StorescpEvent, STORESCP_PATTERNS, STORESCP_FATAL_EVENTS } from './events/storescp';
+export type { StorescpEventValue, StoringFileData, SubdirectoryCreatedData } from './events/storescp';
+
+// Server classes (Phase 4.2-4.3)
+export { Dcmrecv, SubdirectoryMode, FilenameMode, StorageMode } from './servers/Dcmrecv';
+export type { DcmrecvOptions, DcmrecvEventMap, SubdirectoryModeValue, FilenameModeValue, StorageModeValue } from './servers/Dcmrecv';
+
+export { StoreSCP, PreferredTransferSyntax } from './servers/StoreSCP';
+export type { StoreSCPOptions, StoreSCPEventMap, PreferredTransferSyntaxValue } from './servers/StoreSCP';

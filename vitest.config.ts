@@ -9,7 +9,15 @@ export default defineConfig({
             provider: 'v8',
             reporter: ['text', 'lcov', 'json-summary'],
             include: ['src/**/*.ts'],
-            exclude: ['src/**/*.d.ts', 'src/**/*.test.ts', 'src/index.ts', 'src/parsers/EventPattern.ts', 'src/tools/_toolTypes.ts', 'src/dicom/xmlToJson.ts'],
+            exclude: [
+                'src/**/*.d.ts',
+                'src/**/*.test.ts',
+                'src/index.ts',
+                'src/parsers/EventPattern.ts',
+                'src/tools/_toolTypes.ts',
+                'src/dicom/xmlToJson.ts',
+                'src/events/index.ts',
+            ],
             thresholds: {
                 branches: 95,
                 functions: 95,
