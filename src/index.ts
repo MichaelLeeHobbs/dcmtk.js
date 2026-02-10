@@ -248,3 +248,35 @@ export type { DcmrecvOptions, DcmrecvEventMap, SubdirectoryModeValue, FilenameMo
 
 export { StoreSCP, PreferredTransferSyntax } from './servers/StoreSCP';
 export type { StoreSCPOptions, StoreSCPEventMap, PreferredTransferSyntaxValue } from './servers/StoreSCP';
+
+// Event definitions (Phase 4.4)
+export { DcmprscpEvent, DCMPRSCP_PATTERNS, DCMPRSCP_FATAL_EVENTS } from './events/dcmprscp';
+export type {
+    DcmprscpEventValue,
+    DatabaseReadyData,
+    PrintAssociationReceivedData,
+    PrintAssociationAcknowledgedData,
+    PrintCannotStartListenerData,
+    ConfigErrorData,
+} from './events/dcmprscp';
+
+export { DcmpsrcvEvent, DCMPSRCV_PATTERNS, DCMPSRCV_FATAL_EVENTS } from './events/dcmpsrcv';
+export type {
+    DcmpsrcvEventValue,
+    ReceiverListeningData,
+    ReceiverDatabaseReadyData,
+    ReceiverAssociationReceivedData,
+    ReceiverAssociationAcknowledgedData,
+    ReceiverEchoRequestData,
+    ReceiverCStoreRequestData,
+    FileDeletedData,
+    ReceiverCannotStartListenerData,
+    ReceiverConfigErrorData,
+} from './events/dcmpsrcv';
+
+// Server classes (Phase 4.4)
+export { DcmprsCP } from './servers/DcmprsCP';
+export type { DcmprsCPOptions, DcmprsCPEventMap } from './servers/DcmprsCP';
+
+export { Dcmpsrcv } from './servers/Dcmpsrcv';
+export type { DcmpsrcvOptions, DcmpsrcvEventMap } from './servers/Dcmpsrcv';
