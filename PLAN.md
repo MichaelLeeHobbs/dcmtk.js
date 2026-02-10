@@ -443,28 +443,26 @@ Modeled after the production-proven architectural patterns in d-dart, with the l
 
 ### 3.1 dcmdata Module (20 tools) — File I/O & Conversion
 
-| Priority | Tool     | File          | Purpose                                         | exec/spawn                   |
-| -------- | -------- | ------------- | ----------------------------------------------- | ---------------------------- |
-| P0       | dcm2xml  | `dcm2xml.ts`  | DICOM → XML                                     | exec                         |
-| P0       | dcm2json | `dcm2json.ts` | DICOM → JSON (via XML primary, direct fallback) | exec                         |
-| P0       | dcmodify | `dcmodify.ts` | Modify DICOM tags                               | **spawn** (injection safety) |
-| P0       | dcmdump  | `dcmdump.ts`  | Dump DICOM metadata as text                     | exec                         |
-| P0       | dcmconv  | `dcmconv.ts`  | Convert DICOM encoding                          | exec                         |
-| P1       | xml2dcm  | `xml2dcm.ts`  | XML → DICOM                                     | exec                         |
-| P1       | json2dcm | `json2dcm.ts` | JSON → DICOM                                    | exec                         |
-| P1       | img2dcm  | `img2dcm.ts`  | Standard image → DICOM                          | exec                         |
-| P1       | pdf2dcm  | `pdf2dcm.ts`  | PDF → DICOM encapsulation                       | exec                         |
-| P1       | dcm2pdf  | `dcm2pdf.ts`  | Extract PDF from DICOM                          | exec                         |
-| P1       | cda2dcm  | `cda2dcm.ts`  | CDA → DICOM encapsulation                       | exec                         |
-| P1       | dcm2cda  | `dcm2cda.ts`  | Extract CDA from DICOM                          | exec                         |
-| P1       | dump2dcm | `dump2dcm.ts` | ASCII dump → DICOM                              | exec                         |
-| P2       | dcmftest | `dcmftest.ts` | Test if file is DICOM Part 10                   | exec                         |
-| P2       | dcmcrle  | `dcmcrle.ts`  | RLE encode                                      | exec                         |
-| P2       | dcmdrle  | `dcmdrle.ts`  | RLE decode                                      | exec                         |
-| P2       | dcmgpdir | `dcmgpdir.ts` | Create DICOMDIR                                 | exec                         |
-| P2       | stl2dcm  | `stl2dcm.ts`  | STL → DICOM                                     | exec                         |
-| P2       | dcmencap | `dcmencap.ts` | Encapsulate document                            | exec                         |
-| P2       | dcmdecap | `dcmdecap.ts` | Extract encapsulated file                       | exec                         |
+- [x] dcm2xml — DICOM → XML (exec)
+- [x] dcm2json — DICOM → JSON via XML primary, direct fallback (exec)
+- [x] dcmodify — Modify DICOM tags (spawn, injection safety)
+- [x] dcmdump — Dump DICOM metadata as text (exec)
+- [x] dcmconv — Convert DICOM encoding (exec)
+- [x] xml2dcm — XML → DICOM (exec)
+- [x] json2dcm — JSON → DICOM (exec)
+- [x] img2dcm — Standard image → DICOM (exec)
+- [x] pdf2dcm — PDF → DICOM encapsulation (exec)
+- [x] dcm2pdf — Extract PDF from DICOM (exec)
+- [x] cda2dcm — CDA → DICOM encapsulation (exec)
+- [x] dcm2cda — Extract CDA from DICOM (exec)
+- [x] dump2dcm — ASCII dump → DICOM (exec)
+- [x] dcmftest — Test if file is DICOM Part 10 (exec)
+- [x] dcmcrle — RLE encode (exec)
+- [x] dcmdrle — RLE decode (exec)
+- [x] dcmgpdir — Create DICOMDIR (exec)
+- [x] stl2dcm — STL → DICOM (exec)
+- [x] dcmencap — Encapsulate document (exec)
+- [x] dcmdecap — Extract encapsulated file (exec)
 
 **Shared utilities:**
 
@@ -476,66 +474,52 @@ Modeled after the production-proven architectural patterns in d-dart, with the l
 
 ### 3.2 dcmnet Module — Client Tools (7 short-lived)
 
-| Priority | Tool     | File          | Purpose                   | exec/spawn |
-| -------- | -------- | ------------- | ------------------------- | ---------- |
-| P0       | echoscu  | `echoscu.ts`  | DICOM C-ECHO verification | exec       |
-| P0       | dcmsend  | `dcmsend.ts`  | Simple DICOM C-STORE send | exec       |
-| P1       | storescu | `storescu.ts` | Full DICOM C-STORE client | exec       |
-| P1       | findscu  | `findscu.ts`  | DICOM C-FIND query        | exec       |
-| P1       | movescu  | `movescu.ts`  | DICOM C-MOVE retrieve     | exec       |
-| P1       | getscu   | `getscu.ts`   | DICOM C-GET retrieve      | exec       |
-| P2       | termscu  | `termscu.ts`  | DICOM termination         | exec       |
+- [x] echoscu — DICOM C-ECHO verification (exec)
+- [x] dcmsend — Simple DICOM C-STORE send (exec)
+- [x] storescu — Full DICOM C-STORE client (exec)
+- [x] findscu — DICOM C-FIND query (exec)
+- [x] movescu — DICOM C-MOVE retrieve (exec)
+- [x] getscu — DICOM C-GET retrieve (exec)
+- [x] termscu — DICOM termination (exec)
 
 ### 3.3 dcmjpeg Module (4 tools)
 
-| Priority | Tool     | File          | Purpose                                                                  |
-| -------- | -------- | ------------- | ------------------------------------------------------------------------ |
-| P1       | dcmcjpeg | `dcmcjpeg.ts` | JPEG compress DICOM                                                      |
-| P1       | dcmdjpeg | `dcmdjpeg.ts` | JPEG decompress DICOM                                                    |
-| P1       | dcmj2pnm | `dcmj2pnm.ts` | DICOM → image (PNG/BMP/TIFF/JPEG) with dcm2img fallback for DCMTK 3.6.9+ |
-| P2       | dcmmkdir | `dcmmkdir.ts` | Create DICOMDIR                                                          |
+- [x] dcmcjpeg — JPEG compress DICOM (exec)
+- [x] dcmdjpeg — JPEG decompress DICOM (exec)
+- [x] dcmj2pnm — DICOM → image (PNG/BMP/TIFF/JPEG) (exec)
+- [x] dcmmkdir — Create DICOMDIR (exec)
 
 ### 3.4 dcmimage Module (3 tools)
 
-| Priority | Tool     | File          | Purpose                      |
-| -------- | -------- | ------------- | ---------------------------- |
-| P1       | dcm2pnm  | `dcm2pnm.ts`  | DICOM → PGM/PPM/PNG/TIFF/BMP |
-| P2       | dcmscale | `dcmscale.ts` | Scale DICOM images           |
-| P2       | dcmquant | `dcmquant.ts` | Color → palette color        |
+- [x] dcm2pnm — DICOM → PGM/PPM/PNG/TIFF/BMP (exec)
+- [x] dcmscale — Scale DICOM images (exec)
+- [x] dcmquant — Color → palette color (exec)
 
 ### 3.5 dcmimgle Module (3 tools)
 
-| Priority | Tool     | File          | Purpose                        |
-| -------- | -------- | ------------- | ------------------------------ |
-| P2       | dcmdspfn | `dcmdspfn.ts` | Export display curves          |
-| P2       | dcod2lum | `dcod2lum.ts` | Hardcopy → softcopy curve      |
-| P2       | dconvlum | `dconvlum.ts` | VeriLUM → DCMTK display format |
+- [x] dcmdspfn — Export display curves (exec)
+- [x] dcod2lum — Hardcopy → softcopy curve (exec)
+- [x] dconvlum — VeriLUM → DCMTK display format (exec)
 
 ### 3.6 dcmpstat Module — Client Tools (7 short-lived)
 
-| Priority | Tool     | File          | Purpose                             |
-| -------- | -------- | ------------- | ----------------------------------- |
-| P2       | dcmpsmk  | `dcmpsmk.ts`  | Create presentation state           |
-| P2       | dcmpschk | `dcmpschk.ts` | Check presentation state            |
-| P2       | dcmp2pgm | `dcmp2pgm.ts` | Render presentation state to bitmap |
-| P2       | dcmpsprt | `dcmpsprt.ts` | Render print job                    |
-| P2       | dcmprscu | `dcmprscu.ts` | Print spooler                       |
-| P2       | dcmmkcrv | `dcmmkcrv.ts` | Add curve data to image             |
-| P2       | dcmmklut | `dcmmklut.ts` | Create look-up tables               |
+- [x] dcmpsmk — Create presentation state (exec)
+- [x] dcmpschk — Check presentation state (exec)
+- [x] dcmp2pgm — Render presentation state to bitmap (exec)
+- [x] dcmpsprt — Render print job (exec)
+- [x] dcmprscu — Print spooler (exec)
+- [x] dcmmkcrv — Add curve data to image (exec)
+- [x] dcmmklut — Create look-up tables (exec)
 
 ### 3.7 dcmsr Module — Structured Reports (3 tools)
 
-| Priority | Tool    | File         | Purpose         |
-| -------- | ------- | ------------ | --------------- |
-| P1       | dsrdump | `dsrdump.ts` | Dump SR as text |
-| P1       | dsr2xml | `dsr2xml.ts` | SR → XML        |
-| P1       | xml2dsr | `xml2dsr.ts` | XML → SR        |
+- [x] dsrdump — Dump SR as text (exec)
+- [x] dsr2xml — SR → XML (exec)
+- [x] xml2dsr — XML → SR (exec)
 
 ### 3.8 dcmrt Module (1 tool)
 
-| Priority | Tool    | File         | Purpose      |
-| -------- | ------- | ------------ | ------------ |
-| P2       | drtdump | `drtdump.ts` | Dump RT file |
+- [x] drtdump — Dump RT file (exec)
 
 ---
 
