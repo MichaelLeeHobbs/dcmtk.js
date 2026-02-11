@@ -9,6 +9,7 @@
 
 import type { DicomTagPath } from '../brands';
 import type { TagModification } from '../tools/dcmodify';
+import { MAX_CHANGESET_OPERATIONS } from '../constants';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -103,8 +104,13 @@ class ChangeSet {
      * @param path - The DICOM tag path to set
      * @param value - The new value for the tag
      * @returns A new ChangeSet with the modification applied
+     * @throws Error if operation count would exceed MAX_CHANGESET_OPERATIONS
      */
     setTag(path: DicomTagPath, value: string): ChangeSet {
+        const totalOps = this.mods.size + this.erased.size;
+        if (totalOps >= MAX_CHANGESET_OPERATIONS) {
+            throw new Error(`ChangeSet operation limit (${MAX_CHANGESET_OPERATIONS}) exceeded`);
+        }
         const sanitized = sanitizeValue(value);
         const newMods = new Map(this.mods);
         newMods.set(path, sanitized);
@@ -120,8 +126,13 @@ class ChangeSet {
      *
      * @param path - The DICOM tag path to erase
      * @returns A new ChangeSet with the erasure applied
+     * @throws Error if operation count would exceed MAX_CHANGESET_OPERATIONS
      */
     eraseTag(path: DicomTagPath): ChangeSet {
+        const totalOps = this.mods.size + this.erased.size;
+        if (totalOps >= MAX_CHANGESET_OPERATIONS) {
+            throw new Error(`ChangeSet operation limit (${MAX_CHANGESET_OPERATIONS}) exceeded`);
+        }
         const newMods = new Map(this.mods);
         newMods.delete(path);
         const newErasures = new Set(this.erased);
@@ -133,8 +144,13 @@ class ChangeSet {
      * Marks all private tags for erasure, returning a new ChangeSet.
      *
      * @returns A new ChangeSet with the erase-private flag set
+     * @throws Error if operation count would exceed MAX_CHANGESET_OPERATIONS
      */
     erasePrivateTags(): ChangeSet {
+        const totalOps = this.mods.size + this.erased.size;
+        if (totalOps >= MAX_CHANGESET_OPERATIONS) {
+            throw new Error(`ChangeSet operation limit (${MAX_CHANGESET_OPERATIONS}) exceeded`);
+        }
         const newErasures = new Set(this.erased);
         newErasures.add(ERASE_PRIVATE_SENTINEL);
         return new ChangeSet(new Map(this.mods), newErasures);
@@ -148,6 +164,11 @@ class ChangeSet {
     /** All pending tag erasures as a readonly set of paths. */
     get erasures(): ReadonlySet<string> {
         return this.erased;
+    }
+
+    /** Total number of operations (modifications + erasures) in this ChangeSet. */
+    get operationCount(): number {
+        return this.mods.size + this.erased.size;
     }
 
     /** Whether the ChangeSet has no modifications and no erasures. */

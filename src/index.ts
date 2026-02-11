@@ -28,6 +28,7 @@ export {
     MAX_BLOCK_LINES,
     MAX_EVENT_PATTERNS,
     MAX_TRAVERSAL_DEPTH,
+    MAX_CHANGESET_OPERATIONS,
 } from './constants';
 
 // ---------------------------------------------------------------------------

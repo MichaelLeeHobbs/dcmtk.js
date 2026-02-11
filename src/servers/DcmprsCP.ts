@@ -15,6 +15,7 @@ import { DcmtkProcess } from '../DcmtkProcess';
 import type { DcmtkProcessConfig } from '../DcmtkProcess';
 import { LineParser } from '../parsers/LineParser';
 import { resolveBinary } from '../tools/_resolveBinary';
+import { isSafePath } from '../patterns';
 import { DCMPRSCP_PATTERNS, DCMPRSCP_FATAL_EVENTS } from '../events/dcmprscp';
 import type {
     DatabaseReadyData,
@@ -55,20 +56,12 @@ interface DcmprsCPOptions {
     readonly logLevel?: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | undefined;
     /** Path to a log configuration file. */
     readonly logConfig?: string | undefined;
-    /** Timeout for start() to resolve, in milliseconds. */
+    /** Timeout for start() to resolve (milliseconds). */
     readonly startTimeoutMs?: number | undefined;
-    /** Timeout for graceful drain during stop(), in milliseconds. */
+    /** Timeout for graceful drain during stop() (milliseconds). */
     readonly drainTimeoutMs?: number | undefined;
     /** AbortSignal for external cancellation. */
     readonly signal?: AbortSignal | undefined;
-}
-
-/** Pattern matching `..` as a path segment (between separators, or at start/end). */
-const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
-
-/** Returns true if the path does not contain traversal sequences. */
-function isSafePath(p: string): boolean {
-    return !PATH_TRAVERSAL_PATTERN.test(p);
 }
 
 const DcmprsCPOptionsSchema = z
@@ -194,7 +187,10 @@ class DcmprsCP extends DcmtkProcess {
         const args = buildArgs(options);
         const parser = new LineParser();
         for (const pattern of DCMPRSCP_PATTERNS) {
-            parser.addPattern(pattern);
+            const addResult = parser.addPattern(pattern);
+            if (!addResult.ok) {
+                return err(addResult.error);
+            }
         }
 
         const config: DcmtkProcessConfig = {

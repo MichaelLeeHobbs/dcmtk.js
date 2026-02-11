@@ -70,6 +70,9 @@ const MAX_EVENT_PATTERNS = 200;
 /** Maximum loop iterations for iterative traversal (e.g., nested sequences). */
 const MAX_TRAVERSAL_DEPTH = 50;
 
+/** Maximum number of operations (modifications + erasures) in a single ChangeSet. */
+const MAX_CHANGESET_OPERATIONS = 10_000;
+
 export {
     DEFAULT_TIMEOUT_MS,
     DEFAULT_START_TIMEOUT_MS,
@@ -83,4 +86,5 @@ export {
     MAX_BLOCK_LINES,
     MAX_EVENT_PATTERNS,
     MAX_TRAVERSAL_DEPTH,
+    MAX_CHANGESET_OPERATIONS,
 };

@@ -12,36 +12,39 @@ import { z } from 'zod';
 import type { Result } from './types';
 import { ok, err } from './types';
 import type { AETitle, DicomTag, DicomTagPath, SOPClassUID, TransferSyntaxUID, Port } from './brands';
+import {
+    DICOM_TAG_PATTERN,
+    AE_TITLE_PATTERN,
+    UID_PATTERN,
+    TAG_PATH_SEGMENT,
+    AE_TITLE_MIN_LENGTH,
+    AE_TITLE_MAX_LENGTH,
+    UID_MAX_LENGTH,
+    PORT_MIN,
+    PORT_MAX,
+} from './patterns';
 
 // ---------------------------------------------------------------------------
 // Zod schemas
 // ---------------------------------------------------------------------------
 
 /** Schema for DICOM AE Titles: 1-16 chars, letters/digits/spaces/hyphens. */
-const AETitleSchema = z
-    .string()
-    .min(1)
-    .max(16)
-    .regex(/^[A-Za-z0-9 -]+$/);
+const AETitleSchema = z.string().min(AE_TITLE_MIN_LENGTH).max(AE_TITLE_MAX_LENGTH).regex(AE_TITLE_PATTERN);
 
 /** Schema for network port numbers: integer 1-65535. */
-const PortSchema = z.number().int().min(1).max(65535);
+const PortSchema = z.number().int().min(PORT_MIN).max(PORT_MAX);
 
 /** Schema for DICOM tags: (XXXX,XXXX) where X is a hex digit. */
-const DicomTagSchema = z.string().regex(/^\([0-9A-Fa-f]{4},[0-9A-Fa-f]{4}\)$/);
+const DicomTagSchema = z.string().regex(DICOM_TAG_PATTERN);
 
 /** Schema for DICOM tag paths: dot-separated tags with optional array indices. */
 const DicomTagPathSchema = z
     .string()
     .min(1)
-    .regex(/^\([0-9A-Fa-f]{4},[0-9A-Fa-f]{4}\)(\[\d+\])?(\.\([0-9A-Fa-f]{4},[0-9A-Fa-f]{4}\)(\[\d+\])?)*$/);
+    .regex(new RegExp(`^${TAG_PATH_SEGMENT.source}(\\.${TAG_PATH_SEGMENT.source})*$`));
 
 /** Schema for DICOM UIDs: dotted numeric OID, 1-64 chars. */
-const UIDSchema = z
-    .string()
-    .min(1)
-    .max(64)
-    .regex(/^[0-9]+(\.[0-9]+)*$/);
+const UIDSchema = z.string().min(1).max(UID_MAX_LENGTH).regex(UID_PATTERN);
 
 // ---------------------------------------------------------------------------
 // Parse functions — bridge Zod results to Result<BrandedType>

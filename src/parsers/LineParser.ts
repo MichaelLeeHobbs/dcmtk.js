@@ -12,6 +12,8 @@
 
 import { EventEmitter } from 'node:events';
 import type { EventPattern } from './EventPattern';
+import type { Result } from '../types';
+import { ok, err } from '../types';
 import { MAX_BLOCK_LINES, MAX_EVENT_PATTERNS, DEFAULT_BLOCK_TIMEOUT_MS } from '../constants';
 
 // ---------------------------------------------------------------------------
@@ -65,13 +67,14 @@ class LineParser extends EventEmitter<LineParserEventMap> {
      * Registers an event pattern.
      *
      * @param pattern - The pattern to register
-     * @throws Error if maximum pattern count exceeded (Rule 8.1)
+     * @returns Result indicating success or failure if pattern limit exceeded
      */
-    addPattern(pattern: EventPattern): void {
+    addPattern(pattern: EventPattern): Result<void> {
         if (this.patterns.length >= MAX_EVENT_PATTERNS) {
-            throw new Error(`Maximum event patterns (${MAX_EVENT_PATTERNS}) exceeded`);
+            return err(new Error(`Maximum event patterns (${MAX_EVENT_PATTERNS}) exceeded`));
         }
         this.patterns.push(pattern);
+        return ok(undefined);
     }
 
     /**

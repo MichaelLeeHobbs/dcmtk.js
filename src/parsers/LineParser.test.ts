@@ -241,22 +241,35 @@ describe('LineParser', () => {
     });
 
     describe('addPattern() bounds', () => {
-        it('throws when exceeding maximum event patterns', () => {
+        it('returns ok for patterns within limit', () => {
+            parser = new LineParser();
+            const result = parser.addPattern({
+                event: 'TEST',
+                pattern: /test/,
+                processor: () => ({}),
+            });
+            expect(result.ok).toBe(true);
+        });
+
+        it('returns err when exceeding maximum event patterns', () => {
             parser = new LineParser();
             for (let i = 0; i < MAX_EVENT_PATTERNS; i++) {
-                parser.addPattern({
+                const result = parser.addPattern({
                     event: `EVENT_${i}`,
                     pattern: new RegExp(`pattern_${i}`),
                     processor: () => ({}),
                 });
+                expect(result.ok).toBe(true);
             }
-            expect(() =>
-                parser.addPattern({
-                    event: 'ONE_TOO_MANY',
-                    pattern: /overflow/,
-                    processor: () => ({}),
-                })
-            ).toThrow(`Maximum event patterns (${MAX_EVENT_PATTERNS}) exceeded`);
+            const result = parser.addPattern({
+                event: 'ONE_TOO_MANY',
+                pattern: /overflow/,
+                processor: () => ({}),
+            });
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error.message).toBe(`Maximum event patterns (${MAX_EVENT_PATTERNS}) exceeded`);
+            }
         });
     });
 

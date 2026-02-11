@@ -16,6 +16,7 @@ import { DcmtkProcess } from '../DcmtkProcess';
 import type { DcmtkProcessConfig } from '../DcmtkProcess';
 import { LineParser } from '../parsers/LineParser';
 import { resolveBinary } from '../tools/_resolveBinary';
+import { isSafePath } from '../patterns';
 import { DCMQRSCP_PATTERNS, DCMQRSCP_FATAL_EVENTS } from '../events/dcmqrscp';
 import type {
     QRListeningData,
@@ -66,26 +67,18 @@ interface DcmQRSCPOptions {
     readonly disableGet?: boolean | undefined;
     /** Maximum PDU receive size. */
     readonly maxPdu?: number | undefined;
-    /** ACSE timeout in seconds. */
+    /** ACSE timeout in seconds (passed to DCMTK as-is). */
     readonly acseTimeout?: number | undefined;
-    /** DIMSE timeout in seconds. */
+    /** DIMSE timeout in seconds (passed to DCMTK as-is). */
     readonly dimseTimeout?: number | undefined;
     /** Enable verbose mode (default true for event detection). */
     readonly verbose?: boolean | undefined;
-    /** Timeout for start() to resolve, in milliseconds. */
+    /** Timeout for start() to resolve (milliseconds). */
     readonly startTimeoutMs?: number | undefined;
-    /** Timeout for graceful drain during stop(), in milliseconds. */
+    /** Timeout for graceful drain during stop() (milliseconds). */
     readonly drainTimeoutMs?: number | undefined;
     /** AbortSignal for external cancellation. */
     readonly signal?: AbortSignal | undefined;
-}
-
-/** Pattern matching `..` as a path segment (between separators, or at start/end). */
-const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
-
-/** Returns true if the path does not contain traversal sequences. */
-function isSafePath(p: string): boolean {
-    return !PATH_TRAVERSAL_PATTERN.test(p);
 }
 
 const DcmQRSCPOptionsSchema = z
@@ -238,7 +231,10 @@ class DcmQRSCP extends DcmtkProcess {
         const args = buildArgs(options);
         const parser = new LineParser();
         for (const pattern of DCMQRSCP_PATTERNS) {
-            parser.addPattern(pattern);
+            const addResult = parser.addPattern(pattern);
+            if (!addResult.ok) {
+                return err(addResult.error);
+            }
         }
 
         const config: DcmtkProcessConfig = {

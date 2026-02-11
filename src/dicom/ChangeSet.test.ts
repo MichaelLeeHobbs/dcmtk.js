@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ChangeSet } from './ChangeSet';
 import type { DicomTagPath } from '../brands';
+import { MAX_CHANGESET_OPERATIONS } from '../constants';
 
 const path = (s: string): DicomTagPath => s as DicomTagPath;
 
@@ -210,6 +211,56 @@ describe('ChangeSet', () => {
         it('returns empty array for only erase-private sentinel', () => {
             const cs = ChangeSet.empty().erasePrivateTags();
             expect(cs.toErasureArgs()).toHaveLength(0);
+        });
+    });
+
+    describe('operationCount', () => {
+        it('returns 0 for empty ChangeSet', () => {
+            expect(ChangeSet.empty().operationCount).toBe(0);
+        });
+
+        it('counts modifications', () => {
+            const cs = ChangeSet.empty().setTag(path('(0010,0010)'), 'A').setTag(path('(0010,0020)'), 'B');
+            expect(cs.operationCount).toBe(2);
+        });
+
+        it('counts erasures', () => {
+            const cs = ChangeSet.empty().eraseTag(path('(0010,0010)')).eraseTag(path('(0010,0020)'));
+            expect(cs.operationCount).toBe(2);
+        });
+
+        it('counts both modifications and erasures', () => {
+            const cs = ChangeSet.empty().setTag(path('(0010,0010)'), 'A').eraseTag(path('(0010,0020)'));
+            expect(cs.operationCount).toBe(2);
+        });
+    });
+
+    describe('operation limit', () => {
+        it('throws when setTag exceeds MAX_CHANGESET_OPERATIONS', () => {
+            let cs = ChangeSet.empty();
+            for (let i = 0; i < MAX_CHANGESET_OPERATIONS; i++) {
+                const tag = `(${String(i).padStart(4, '0')},0000)`;
+                cs = cs.setTag(path(tag), `val_${i}`);
+            }
+            expect(() => cs.setTag(path('(FFFF,FFFF)'), 'overflow')).toThrow(`ChangeSet operation limit (${MAX_CHANGESET_OPERATIONS}) exceeded`);
+        });
+
+        it('throws when eraseTag exceeds MAX_CHANGESET_OPERATIONS', () => {
+            let cs = ChangeSet.empty();
+            for (let i = 0; i < MAX_CHANGESET_OPERATIONS; i++) {
+                const tag = `(${String(i).padStart(4, '0')},0000)`;
+                cs = cs.eraseTag(path(tag));
+            }
+            expect(() => cs.eraseTag(path('(FFFF,FFFF)'))).toThrow(`ChangeSet operation limit (${MAX_CHANGESET_OPERATIONS}) exceeded`);
+        });
+
+        it('throws when erasePrivateTags exceeds MAX_CHANGESET_OPERATIONS', () => {
+            let cs = ChangeSet.empty();
+            for (let i = 0; i < MAX_CHANGESET_OPERATIONS; i++) {
+                const tag = `(${String(i).padStart(4, '0')},0000)`;
+                cs = cs.setTag(path(tag), `val_${i}`);
+            }
+            expect(() => cs.erasePrivateTags()).toThrow(`ChangeSet operation limit (${MAX_CHANGESET_OPERATIONS}) exceeded`);
         });
     });
 

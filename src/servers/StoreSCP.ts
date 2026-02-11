@@ -15,6 +15,7 @@ import { DcmtkProcess } from '../DcmtkProcess';
 import type { DcmtkProcessConfig } from '../DcmtkProcess';
 import { LineParser } from '../parsers/LineParser';
 import { resolveBinary } from '../tools/_resolveBinary';
+import { isSafePath } from '../patterns';
 import { STORESCP_PATTERNS, STORESCP_FATAL_EVENTS } from '../events/storescp';
 import type {
     AssociationReceivedData,
@@ -88,23 +89,23 @@ interface StoreSCPOptions {
     readonly execOnReception?: string | undefined;
     /** Execute command at end of study. */
     readonly execOnEndOfStudy?: string | undefined;
-    /** Timeout (seconds) for end-of-study detection. */
+    /** Timeout for end-of-study detection in seconds (passed to DCMTK as-is). */
     readonly endOfStudyTimeout?: number | undefined;
     /** Rename files at end of study. */
     readonly renameOnEndOfStudy?: boolean | undefined;
-    /** Socket timeout in seconds. */
+    /** Socket timeout in seconds (passed to DCMTK as-is). */
     readonly socketTimeout?: number | undefined;
-    /** ACSE timeout in seconds. */
+    /** ACSE timeout in seconds (passed to DCMTK as-is). */
     readonly acseTimeout?: number | undefined;
-    /** DIMSE timeout in seconds. */
+    /** DIMSE timeout in seconds (passed to DCMTK as-is). */
     readonly dimseTimeout?: number | undefined;
     /** Maximum PDU receive size. */
     readonly maxPdu?: number | undefined;
     /** Filename extension for received files. */
     readonly filenameExtension?: string | undefined;
-    /** Timeout for start() to resolve, in milliseconds. */
+    /** Timeout for start() to resolve (milliseconds). */
     readonly startTimeoutMs?: number | undefined;
-    /** Timeout for graceful drain during stop(), in milliseconds. */
+    /** Timeout for graceful drain during stop() (milliseconds). */
     readonly drainTimeoutMs?: number | undefined;
     /** AbortSignal for external cancellation. */
     readonly signal?: AbortSignal | undefined;
@@ -143,14 +144,6 @@ const StoreSCPPreset = {
 
 /** Names of the available StoreSCP configuration presets. */
 type StoreSCPPresetName = keyof typeof StoreSCPPreset;
-
-/** Pattern matching `..` as a path segment (between separators, or at start/end). */
-const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
-
-/** Returns true if the path does not contain traversal sequences. */
-function isSafePath(p: string): boolean {
-    return !PATH_TRAVERSAL_PATTERN.test(p);
-}
 
 const StoreSCPOptionsSchema = z
     .object({
@@ -369,7 +362,10 @@ class StoreSCP extends DcmtkProcess {
         const args = buildArgs(options);
         const parser = new LineParser();
         for (const pattern of STORESCP_PATTERNS) {
-            parser.addPattern(pattern);
+            const addResult = parser.addPattern(pattern);
+            if (!addResult.ok) {
+                return err(addResult.error);
+            }
         }
 
         const config: DcmtkProcessConfig = {

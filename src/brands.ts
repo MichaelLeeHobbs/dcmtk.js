@@ -12,6 +12,18 @@
 import { normalize } from 'node:path';
 import type { Result } from './types';
 import { ok, err } from './types';
+import {
+    DICOM_TAG_PATTERN,
+    AE_TITLE_PATTERN,
+    UID_PATTERN,
+    DICOM_TAG_PATH_PATTERN,
+    AE_TITLE_MIN_LENGTH,
+    AE_TITLE_MAX_LENGTH,
+    UID_MAX_LENGTH,
+    PORT_MIN,
+    PORT_MAX,
+    PATH_TRAVERSAL_PATTERN,
+} from './patterns';
 
 declare const __brand: unique symbol;
 
@@ -92,21 +104,7 @@ type DicomFilePath = Brand<string, 'DicomFilePath'>;
  */
 type Port = Brand<number, 'Port'>;
 
-// ---------------------------------------------------------------------------
-// Validation patterns
-// ---------------------------------------------------------------------------
-
-const DICOM_TAG_PATTERN = /^\([0-9A-Fa-f]{4},[0-9A-Fa-f]{4}\)$/;
-const AE_TITLE_PATTERN = /^[A-Za-z0-9 -]+$/;
-const UID_PATTERN = /^[0-9]+(\.[0-9]+)*$/;
-const TAG_PATH_SEGMENT = /\([0-9A-Fa-f]{4},[0-9A-Fa-f]{4}\)(\[\d+\])?/;
-const DICOM_TAG_PATH_PATTERN = new RegExp(`^${TAG_PATH_SEGMENT.source}(\\.${TAG_PATH_SEGMENT.source})*$`);
-
-const AE_TITLE_MIN_LENGTH = 1;
-const AE_TITLE_MAX_LENGTH = 16;
-const UID_MAX_LENGTH = 64;
-const PORT_MIN = 1;
-const PORT_MAX = 65535;
+// Validation patterns and constants imported from ./patterns
 
 // ---------------------------------------------------------------------------
 // Factory functions
@@ -188,9 +186,6 @@ function createTransferSyntaxUID(input: string): Result<TransferSyntaxUID> {
     }
     return ok(input as TransferSyntaxUID);
 }
-
-/** Pattern matching `..` as a path segment (between separators, or at start/end). */
-const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
 
 /**
  * Creates a branded DicomFilePath from a raw string.

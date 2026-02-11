@@ -360,11 +360,11 @@ verification. Categories:
 
 ## 3. Architecture & Design Flaws
 
-### ARCH-01: Inconsistent Timeout Units (MEDIUM)
+### ~~ARCH-01: Inconsistent Timeout Units (MEDIUM)~~
 
-**Files:** All 6 server classes
+~~**Files:** All 6 server classes~~
 
-Server options mix seconds and milliseconds without consistent naming:
+~~Server options mix seconds and milliseconds without consistent naming:~~
 
 ```typescript
 interface DcmrecvOptions {
@@ -374,68 +374,82 @@ interface DcmrecvOptions {
 }
 ```
 
-Three fields use seconds (ACSE, DIMSE, end-of-study) while two use milliseconds (start, drain). The `Ms` suffix convention is inconsistent. Risk of
-off-by-three-orders-of-magnitude bugs.
+~~Three fields use seconds (ACSE, DIMSE, end-of-study) while two use milliseconds (start, drain). The `Ms` suffix convention is inconsistent. Risk of
+off-by-three-orders-of-magnitude bugs.~~
 
-**Recommendation:** Standardize all to milliseconds with `Ms` suffix, or add explicit TSDoc documenting units on every timeout field.
+~~**Recommendation:** Standardize all to milliseconds with `Ms` suffix, or add explicit TSDoc documenting units on every timeout field.~~
 
----
-
-### ARCH-02: Regex Pattern Duplication (MEDIUM)
-
-**Files:** `src/brands.ts:49-53`, `src/validation.ts:31-44`
-
-DICOM tag, AE title, UID, and tag path regex patterns are defined independently in both `brands.ts` and `validation.ts`. If patterns need to change, both
-locations must be updated.
-
-**Recommendation:** Extract shared patterns to a `src/patterns.ts` constants file.
+~~**Resolution:** TSDoc on all 6 server options interfaces now explicitly states units — "(seconds, passed to DCMTK as-is)" for DCMTK-passthrough timeouts and "(milliseconds)" for Node.js timeouts.~~
 
 ---
 
-### ARCH-03: Inconsistent Zod Schema .optional() Usage (MEDIUM)
+### ~~ARCH-02: Regex Pattern Duplication (MEDIUM)~~
 
-**Files:** Various tool wrappers
+~~**Files:** `src/brands.ts:49-53`, `src/validation.ts:31-44`~~
 
-Some tool schemas use `.optional()` on the entire schema object (e.g., `dcm2json.ts`, `xml2dcm.ts`) while others don't (e.g., `echoscu.ts`, `dcmodify.ts`). No
-clear convention exists for when the schema itself should be optional vs. relying on TypeScript's `?` parameter syntax.
+~~DICOM tag, AE title, UID, and tag path regex patterns are defined independently in both `brands.ts` and `validation.ts`. If patterns need to change, both
+locations must be updated.~~
 
----
+~~**Recommendation:** Extract shared patterns to a `src/patterns.ts` constants file.~~
 
-### ARCH-04: Server Options Field Duplication (LOW)
-
-**Files:** All 6 server classes
-
-~60% of server option fields are duplicated across all 6 server interfaces (`port`, `aeTitle`, `acseTimeout`, `dimseTimeout`, `maxPdu`, `startTimeoutMs`,
-`drainTimeoutMs`, `signal`). No shared base interface exists.
-
-**Recommendation:** Extract `ServerBaseOptions` interface. Not urgent at 6 servers, but scales poorly.
+~~**Resolution:** Created `src/patterns.ts` as single source of truth for all shared regex patterns and validation constants. Updated `brands.ts`, `validation.ts`, and all 6 server files to import from it. PATH_TRAVERSAL_PATTERN and isSafePath() deduplicated from 7 copies to 1.~~
 
 ---
 
-### ARCH-05: LineParser.addPattern() Throws (LOW)
+### ~~ARCH-03: Inconsistent Zod Schema .optional() Usage (MEDIUM)~~
 
-**File:** `src/parsers/LineParser.ts:70-75`
+~~**Files:** Various tool wrappers~~
 
-Throws when `MAX_EVENT_PATTERNS` is exceeded, violating Rule 6.2 (Result pattern for recoverable failures). Technically acceptable since it's internal and the
-limit is never reached in practice, but inconsistent with the project's own standard.
+~~Some tool schemas use `.optional()` on the entire schema object (e.g., `dcm2json.ts`, `xml2dcm.ts`) while others don't (e.g., `echoscu.ts`, `dcmodify.ts`). No
+clear convention exists for when the schema itself should be optional vs. relying on TypeScript's `?` parameter syntax.~~
 
----
-
-### ARCH-06: DicomFilePath Over-Branding (LOW)
-
-**File:** `src/brands.ts:149-154`
-
-`DicomFilePath` branded type validates only non-empty string. The branding cost (requiring factory function) far outweighs the validation benefit (rejecting
-empty strings). Compare to `DicomTag` which has complex regex validation justifying the brand.
+~~**Resolution:** This is an intentional convention: schema-level `.optional()` is used when all parameters are optional (function signature has `options?`), omitted when required fields exist. Consistent across the codebase.~~
 
 ---
 
-### ARCH-07: ChangeSet Unbounded Accumulation (LOW)
+### ~~ARCH-04: Server Options Field Duplication (LOW)~~
 
-**File:** `src/dicom/DicomFile.ts`
+~~**Files:** All 6 server classes~~
 
-ChangeSet builder pattern allows unlimited chaining with no bound on accumulated changes. Could theoretically consume unbounded memory if a user accumulates
-millions of changes.
+~~\~60% of server option fields are duplicated across all 6 server interfaces (`port`, `aeTitle`, `acseTimeout`, `dimseTimeout`, `maxPdu`, `startTimeoutMs`,
+`drainTimeoutMs`, `signal`). No shared base interface exists.~~
+
+~~**Recommendation:** Extract `ServerBaseOptions` interface. Not urgent at 6 servers, but scales poorly.~~
+
+~~**Resolution:** Accepted as-is. Each server has enough unique fields that a shared base would add abstraction without meaningful benefit at 6 servers. TSDoc improvements from ARCH-01 ensure consistency.~~
+
+---
+
+### ~~ARCH-05: LineParser.addPattern() Throws (LOW)~~
+
+~~**File:** `src/parsers/LineParser.ts:70-75`~~
+
+~~Throws when `MAX_EVENT_PATTERNS` is exceeded, violating Rule 6.2 (Result pattern for recoverable failures). Technically acceptable since it's internal and the
+limit is never reached in practice, but inconsistent with the project's own standard.~~
+
+~~**Resolution:** `addPattern()` now returns `Result<void>` instead of throwing. All 6 server `create()` methods updated to check the result.~~
+
+---
+
+### ~~ARCH-06: DicomFilePath Over-Branding (LOW)~~
+
+~~**File:** `src/brands.ts:149-154`~~
+
+~~`DicomFilePath` branded type validates only non-empty string. The branding cost (requiring factory function) far outweighs the validation benefit (rejecting
+empty strings). Compare to `DicomTag` which has complex regex validation justifying the brand.~~
+
+~~**Resolution:** `createDicomFilePath` now also validates against path traversal (`..`), giving the brand meaningful security validation beyond just non-empty.~~
+
+---
+
+### ~~ARCH-07: ChangeSet Unbounded Accumulation (LOW)~~
+
+~~**File:** `src/dicom/DicomFile.ts`~~
+
+~~ChangeSet builder pattern allows unlimited chaining with no bound on accumulated changes. Could theoretically consume unbounded memory if a user accumulates
+millions of changes.~~
+
+~~**Resolution:** Added `MAX_CHANGESET_OPERATIONS = 10,000` constant. `setTag()`, `eraseTag()`, and `erasePrivateTags()` enforce the bound. New `operationCount` getter for observability.~~
 
 ---
 
