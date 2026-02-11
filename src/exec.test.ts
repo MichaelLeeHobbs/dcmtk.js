@@ -50,16 +50,20 @@ describe('execCommand()', () => {
     it('returns error for nonexistent binary', async () => {
         const result = await execCommand('nonexistent_binary_xyz_12345', []);
 
-        // exec may return an error event or a close with non-zero exit code
-        // depending on platform; either way it should not throw
-        expect(result).toBeDefined();
+        // spawn returns a Process error for ENOENT
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.message).toContain('Process error');
+        }
     });
 
-    it('respects timeout option', async () => {
+    it('times out long-running processes', async () => {
         const result = await execCommand(process.execPath, ['-e', 'setTimeout(()=>{},30000)'], { timeoutMs: 200 });
 
-        // Should fail due to timeout — exec returns error or killed process
-        expect(result).toBeDefined();
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.message).toContain('timed out');
+        }
     });
 });
 

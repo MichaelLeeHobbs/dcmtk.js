@@ -88,7 +88,7 @@ const DCMQRSCP_PATTERNS: readonly EventPattern[] = [
     },
     {
         event: DcmqrscpEvent.ASSOCIATION_RECEIVED,
-        pattern: /Association Received\s*(.+)/,
+        pattern: /Association Received\s*([^\r\n]+)/,
         processor: (match): QRAssociationReceivedData => ({
             peerInfo: (match[1] ?? '').trim(),
         }),

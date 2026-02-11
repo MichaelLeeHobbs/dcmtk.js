@@ -15,7 +15,11 @@ export default defineConfig({
                 'src/index.ts',
                 'src/parsers/EventPattern.ts',
                 'src/tools/_toolTypes.ts',
+                'src/tools/index.ts',
+                'src/servers/index.ts',
+                'src/dicom/index.ts',
                 'src/dicom/xmlToJson.ts',
+                'src/utils/index.ts',
                 'src/events/index.ts',
             ],
             thresholds: {
@@ -26,6 +30,11 @@ export default defineConfig({
             },
         },
         include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
-        exclude: ['test/integration/**/*.test.ts'],
+        exclude: [
+            // Integration tests are excluded from the default test run because they
+            // require DCMTK binaries installed on the system. Run them separately
+            // with: pnpm run test:integration
+            'test/integration/**/*.test.ts',
+        ],
     },
 });

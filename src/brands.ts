@@ -9,6 +9,7 @@
  * @module brands
  */
 
+import { normalize } from 'node:path';
 import type { Result } from './types';
 import { ok, err } from './types';
 
@@ -21,25 +22,74 @@ type Brand<T, TBrand extends string> = T & { readonly [__brand]: TBrand };
 // Branded types
 // ---------------------------------------------------------------------------
 
-/** A validated DICOM tag string, e.g. `"(0010,0010)"`. */
+/**
+ * A validated DICOM tag string, e.g. `"(0010,0010)"`.
+ *
+ * @remarks
+ * Branded types enforce type safety when passing values between functions.
+ * They are not required for direct API calls (which validate internally via Zod).
+ * Use {@link createDicomTag} to obtain a branded value from a raw string.
+ */
 type DicomTag = Brand<string, 'DicomTag'>;
 
-/** A validated AE Title (1-16 chars: uppercase letters, digits, spaces, hyphens). */
+/**
+ * A validated AE Title (1-16 chars: uppercase letters, digits, spaces, hyphens).
+ *
+ * @remarks
+ * Branded types enforce type safety when passing values between functions.
+ * They are not required for direct API calls (which validate internally via Zod).
+ * Use {@link createAETitle} to obtain a branded value from a raw string.
+ */
 type AETitle = Brand<string, 'AETitle'>;
 
-/** A validated DICOM tag path, e.g. `"(0040,A730)[0].(0010,0010)"`. */
+/**
+ * A validated DICOM tag path, e.g. `"(0040,A730)[0].(0010,0010)"`.
+ *
+ * @remarks
+ * Branded types enforce type safety when passing values between functions.
+ * They are not required for direct API calls (which validate internally via Zod).
+ * Use {@link createDicomTagPath} to obtain a branded value from a raw string.
+ */
 type DicomTagPath = Brand<string, 'DicomTagPath'>;
 
-/** A validated SOP Class UID (dotted numeric OID, 1-64 chars). */
+/**
+ * A validated SOP Class UID (dotted numeric OID, 1-64 chars).
+ *
+ * @remarks
+ * Branded types enforce type safety when passing values between functions.
+ * They are not required for direct API calls (which validate internally via Zod).
+ * Use {@link createSOPClassUID} to obtain a branded value from a raw string.
+ */
 type SOPClassUID = Brand<string, 'SOPClassUID'>;
 
-/** A validated Transfer Syntax UID (dotted numeric OID, 1-64 chars). */
+/**
+ * A validated Transfer Syntax UID (dotted numeric OID, 1-64 chars).
+ *
+ * @remarks
+ * Branded types enforce type safety when passing values between functions.
+ * They are not required for direct API calls (which validate internally via Zod).
+ * Use {@link createTransferSyntaxUID} to obtain a branded value from a raw string.
+ */
 type TransferSyntaxUID = Brand<string, 'TransferSyntaxUID'>;
 
-/** A validated filesystem path to a DICOM file. */
+/**
+ * A validated filesystem path to a DICOM file.
+ *
+ * @remarks
+ * Branded types enforce type safety when passing values between functions.
+ * They are not required for direct API calls (which validate internally via Zod).
+ * Use {@link createDicomFilePath} to obtain a branded value from a raw string.
+ */
 type DicomFilePath = Brand<string, 'DicomFilePath'>;
 
-/** A validated network port number (1-65535). */
+/**
+ * A validated network port number (1-65535).
+ *
+ * @remarks
+ * Branded types enforce type safety when passing values between functions.
+ * They are not required for direct API calls (which validate internally via Zod).
+ * Use {@link createPort} to obtain a branded value from a raw number.
+ */
 type Port = Brand<number, 'Port'>;
 
 // ---------------------------------------------------------------------------
@@ -139,9 +189,12 @@ function createTransferSyntaxUID(input: string): Result<TransferSyntaxUID> {
     return ok(input as TransferSyntaxUID);
 }
 
+/** Pattern matching `..` as a path segment (between separators, or at start/end). */
+const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
 /**
  * Creates a branded DicomFilePath from a raw string.
- * Validates that the path is non-empty.
+ * Validates that the path is non-empty and does not contain path traversal sequences.
  *
  * @param input - A filesystem path string
  * @returns A Result containing the branded DicomFilePath or an error
@@ -150,7 +203,11 @@ function createDicomFilePath(input: string): Result<DicomFilePath> {
     if (input.length === 0) {
         return err(new Error('Invalid DICOM file path: empty string'));
     }
-    return ok(input as DicomFilePath);
+    if (PATH_TRAVERSAL_PATTERN.test(input)) {
+        return err(new Error(`Invalid DICOM file path: path traversal detected in "${input}"`));
+    }
+    const normalized = normalize(input);
+    return ok(normalized as DicomFilePath);
 }
 
 /**

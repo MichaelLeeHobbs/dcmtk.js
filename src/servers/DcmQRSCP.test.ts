@@ -176,6 +176,36 @@ describe('DcmQRSCP', () => {
             server[Symbol.dispose]();
         });
 
+        it('onCFindRequest convenience method delegates to onEvent', () => {
+            const result = DcmQRSCP.create({ configFile: '/etc/dcmqrscp.cfg' });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onCFindRequest(spy);
+
+            server.emit('line', { source: 'stderr', text: 'I: Received Find SCP Request' });
+
+            expect(spy).toHaveBeenCalledOnce();
+            server[Symbol.dispose]();
+        });
+
+        it('onCMoveRequest convenience method delegates to onEvent', () => {
+            const result = DcmQRSCP.create({ configFile: '/etc/dcmqrscp.cfg' });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onCMoveRequest(spy);
+
+            server.emit('line', { source: 'stderr', text: 'I: Received Move SCP Request' });
+
+            expect(spy).toHaveBeenCalledOnce();
+            server[Symbol.dispose]();
+        });
+
         it('emits ASSOCIATION_ACKNOWLEDGED with maxSendPDV', () => {
             const result = DcmQRSCP.create({ configFile: '/etc/dcmqrscp.cfg' });
             expect(result.ok).toBe(true);

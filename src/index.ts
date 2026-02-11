@@ -3,8 +3,8 @@
 // ---------------------------------------------------------------------------
 
 // Result pattern
-export { ok, err, assertUnreachable } from './types';
-export type { Result, DcmtkProcessResult, ExecOptions, SpawnOptions, LineSource, ProcessLine } from './types';
+export { ok, err, assertUnreachable, unwrap, mapResult } from './types';
+export type { Result, ResultValue, DcmtkProcessResult, ExecOptions, SpawnOptions, LineSource, ProcessLine } from './types';
 
 // Branded types + factories
 export { createDicomTag, createAETitle, createDicomTagPath, createSOPClassUID, createTransferSyntaxUID, createDicomFilePath, createPort } from './brands';
@@ -335,8 +335,8 @@ export type {
 export { Dcmrecv, SubdirectoryMode, FilenameMode, StorageMode } from './servers/Dcmrecv';
 export type { DcmrecvOptions, DcmrecvEventMap, SubdirectoryModeValue, FilenameModeValue, StorageModeValue } from './servers/Dcmrecv';
 
-export { StoreSCP, PreferredTransferSyntax } from './servers/StoreSCP';
-export type { StoreSCPOptions, StoreSCPEventMap, PreferredTransferSyntaxValue } from './servers/StoreSCP';
+export { StoreSCP, PreferredTransferSyntax, StoreSCPPreset } from './servers/StoreSCP';
+export type { StoreSCPOptions, StoreSCPEventMap, PreferredTransferSyntaxValue, StoreSCPPresetName } from './servers/StoreSCP';
 
 export { DcmprsCP } from './servers/DcmprsCP';
 export type { DcmprsCPOptions, DcmprsCPEventMap } from './servers/DcmprsCP';
@@ -349,3 +349,12 @@ export type { DcmQRSCPOptions, DcmQRSCPEventMap } from './servers/DcmQRSCP';
 
 export { Wlmscpfs } from './servers/Wlmscpfs';
 export type { WlmscpfsOptions, WlmscpfsEventMap } from './servers/Wlmscpfs';
+
+// ---------------------------------------------------------------------------
+// Utility functions
+// ---------------------------------------------------------------------------
+
+export { batch } from './utils/batch';
+export type { BatchOptions, BatchResult } from './utils/batch';
+export { retry } from './utils/retry';
+export type { RetryOptions } from './utils/retry';

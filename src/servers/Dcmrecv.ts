@@ -108,12 +108,20 @@ interface DcmrecvOptions {
     readonly signal?: AbortSignal | undefined;
 }
 
+/** Pattern matching `..` as a path segment (between separators, or at start/end). */
+const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
+/** Returns true if the path does not contain traversal sequences. */
+function isSafePath(p: string): boolean {
+    return !PATH_TRAVERSAL_PATTERN.test(p);
+}
+
 const DcmrecvOptionsSchema = z
     .object({
         port: z.number().int().min(1).max(65535),
         aeTitle: z.string().min(1).max(16).optional(),
-        outputDirectory: z.string().min(1).optional(),
-        configFile: z.string().min(1).optional(),
+        outputDirectory: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in outputDirectory' }).optional(),
+        configFile: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in configFile' }).optional(),
         configProfile: z.string().min(1).optional(),
         subdirectory: z.enum(['none', 'series-date']).optional(),
         filenameMode: z.enum(['default', 'unique', 'short-unique', 'system-time']).optional(),
@@ -237,6 +245,26 @@ class Dcmrecv extends DcmtkProcess {
      */
     onEvent<K extends keyof DcmrecvEventMap>(event: K, listener: (...args: DcmrecvEventMap[K]) => void): this {
         return this.on(event as string, listener as never);
+    }
+
+    /**
+     * Registers a listener for incoming associations.
+     *
+     * @param listener - Callback receiving association data
+     * @returns this for chaining
+     */
+    onAssociationReceived(listener: (...args: DcmrecvEventMap['ASSOCIATION_RECEIVED']) => void): this {
+        return this.onEvent('ASSOCIATION_RECEIVED', listener);
+    }
+
+    /**
+     * Registers a listener for stored files.
+     *
+     * @param listener - Callback receiving stored file data
+     * @returns this for chaining
+     */
+    onStoredFile(listener: (...args: DcmrecvEventMap['STORED_FILE']) => void): this {
+        return this.onEvent('STORED_FILE', listener);
     }
 
     /**

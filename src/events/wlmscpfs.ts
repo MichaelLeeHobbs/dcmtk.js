@@ -71,7 +71,7 @@ const WLMSCPFS_PATTERNS: readonly EventPattern[] = [
     },
     {
         event: WlmscpfsEvent.ASSOCIATION_RECEIVED,
-        pattern: /Association Received\s*(.+)/,
+        pattern: /Association Received\s*([^\r\n]+)/,
         processor: (match): WlmAssociationReceivedData => ({
             peerInfo: (match[1] ?? '').trim(),
         }),

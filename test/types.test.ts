@@ -5,7 +5,7 @@
  * and branded types prevent accidental mixing. These tests run at
  * compile-time (type checking) and at runtime (vitest assertions).
  */
-import { describe, it, expectTypeOf } from 'vitest';
+import { describe, it, expect, expectTypeOf } from 'vitest';
 import type {
     Result,
     DicomTag,
@@ -332,5 +332,47 @@ describe('Constant object types', () => {
 
     it('lookupTag returns DictionaryEntry or undefined', () => {
         expectTypeOf(lookupTag).returns.toMatchTypeOf<DictionaryEntry | undefined>();
+    });
+});
+
+describe('Negative type tests', () => {
+    it('cannot access .value without narrowing Result', () => {
+        const result: Result<string> = ok('hello');
+        // @ts-expect-error - cannot access value without narrowing
+        void result.value;
+    });
+
+    it('cannot access .error without narrowing Result', () => {
+        const result: Result<string> = ok('hello');
+        // @ts-expect-error - cannot access error without narrowing
+        void result.error;
+    });
+
+    it('cannot assign raw string to DicomTag', () => {
+        // @ts-expect-error - raw string is not assignable to DicomTag
+        const _tag: DicomTag = '(0010,0010)';
+        void _tag;
+    });
+
+    it('cannot assign raw string to AETitle', () => {
+        // @ts-expect-error - raw string is not assignable to AETitle
+        const _ae: AETitle = 'MYSCP';
+        void _ae;
+    });
+
+    it('cannot assign raw number to Port', () => {
+        // @ts-expect-error - raw number is not assignable to Port
+        const _port: Port = 11112;
+        void _port;
+    });
+
+    it('cannot assign DicomTag to AETitle', () => {
+        const tagResult = createDicomTag('(0010,0010)');
+        expect(tagResult.ok).toBe(true);
+        if (tagResult.ok) {
+            // @ts-expect-error - DicomTag is not assignable to AETitle
+            const _ae: AETitle = tagResult.value;
+            void _ae;
+        }
     });
 });

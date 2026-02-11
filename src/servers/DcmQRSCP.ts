@@ -80,9 +80,17 @@ interface DcmQRSCPOptions {
     readonly signal?: AbortSignal | undefined;
 }
 
+/** Pattern matching `..` as a path segment (between separators, or at start/end). */
+const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
+/** Returns true if the path does not contain traversal sequences. */
+function isSafePath(p: string): boolean {
+    return !PATH_TRAVERSAL_PATTERN.test(p);
+}
+
 const DcmQRSCPOptionsSchema = z
     .object({
-        configFile: z.string().min(1),
+        configFile: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in configFile' }),
         port: z.number().int().min(1).max(65535).optional(),
         singleProcess: z.boolean().optional(),
         checkFind: z.boolean().optional(),
@@ -188,6 +196,26 @@ class DcmQRSCP extends DcmtkProcess {
      */
     onEvent<K extends keyof DcmQRSCPEventMap>(event: K, listener: (...args: DcmQRSCPEventMap[K]) => void): this {
         return this.on(event as string, listener as never);
+    }
+
+    /**
+     * Registers a listener for incoming C-FIND requests.
+     *
+     * @param listener - Callback receiving C-FIND request data
+     * @returns this for chaining
+     */
+    onCFindRequest(listener: (...args: DcmQRSCPEventMap['C_FIND_REQUEST']) => void): this {
+        return this.onEvent('C_FIND_REQUEST', listener);
+    }
+
+    /**
+     * Registers a listener for incoming C-MOVE requests.
+     *
+     * @param listener - Callback receiving C-MOVE request data
+     * @returns this for chaining
+     */
+    onCMoveRequest(listener: (...args: DcmQRSCPEventMap['C_MOVE_REQUEST']) => void): this {
+        return this.onEvent('C_MOVE_REQUEST', listener);
     }
 
     /**

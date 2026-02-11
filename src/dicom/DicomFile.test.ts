@@ -1,3 +1,4 @@
+import { normalize } from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Stats } from 'node:fs';
 import { DicomFile } from './DicomFile';
@@ -47,7 +48,7 @@ beforeEach(() => {
 
     mockedDcmodify.mockResolvedValue({
         ok: true,
-        value: { filePath: '/path/to/test.dcm' },
+        value: { filePath: normalize('/path/to/test.dcm') },
     });
 
     mockedCopyFile.mockResolvedValue(undefined);
@@ -62,7 +63,7 @@ describe('DicomFile', () => {
             expect(result.ok).toBe(true);
             if (result.ok) {
                 expect(result.value.dataset.patientName).toBe('Smith^John');
-                expect(result.value.filePath).toBe('/path/to/test.dcm');
+                expect(result.value.filePath).toBe(normalize('/path/to/test.dcm'));
                 expect(result.value.changes.isEmpty).toBe(true);
             }
         });
@@ -186,7 +187,7 @@ describe('DicomFile', () => {
 
             expect(result.ok).toBe(true);
             expect(mockedDcmodify).toHaveBeenCalledWith(
-                '/path/to/test.dcm',
+                normalize('/path/to/test.dcm'),
                 expect.objectContaining({
                     modifications: [{ tag: '(0010,0010)', value: 'Anonymous' }],
                     insertIfMissing: true,
@@ -237,7 +238,7 @@ describe('DicomFile', () => {
             });
 
             expect(mockedDcmodify).toHaveBeenCalledWith(
-                '/path/to/test.dcm',
+                normalize('/path/to/test.dcm'),
                 expect.objectContaining({
                     timeoutMs: 5000,
                     signal: controller.signal,
@@ -254,7 +255,7 @@ describe('DicomFile', () => {
             await openResult.value.withChanges(changes).applyChanges();
 
             expect(mockedDcmodify).toHaveBeenCalledWith(
-                '/path/to/test.dcm',
+                normalize('/path/to/test.dcm'),
                 expect.objectContaining({
                     erasures: ['(0010,0020)'],
                 })
@@ -270,7 +271,7 @@ describe('DicomFile', () => {
             await openResult.value.withChanges(changes).applyChanges();
 
             expect(mockedDcmodify).toHaveBeenCalledWith(
-                '/path/to/test.dcm',
+                normalize('/path/to/test.dcm'),
                 expect.objectContaining({
                     erasePrivateTags: true,
                 })
@@ -290,9 +291,9 @@ describe('DicomFile', () => {
 
             expect(result.ok).toBe(true);
             if (result.ok) {
-                expect(result.value).toBe('/path/to/output.dcm');
+                expect(result.value).toBe(normalize('/path/to/output.dcm'));
             }
-            expect(mockedCopyFile).toHaveBeenCalledWith('/path/to/test.dcm', '/path/to/output.dcm');
+            expect(mockedCopyFile).toHaveBeenCalledWith(normalize('/path/to/test.dcm'), '/path/to/output.dcm');
             expect(mockedDcmodify).toHaveBeenCalled();
         });
 
@@ -393,7 +394,7 @@ describe('DicomFile', () => {
             const result = await openResult.value.unlink();
 
             expect(result.ok).toBe(true);
-            expect(mockedUnlink).toHaveBeenCalledWith('/path/to/test.dcm');
+            expect(mockedUnlink).toHaveBeenCalledWith(normalize('/path/to/test.dcm'));
         });
 
         it('returns error when unlink fails', async () => {

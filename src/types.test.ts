@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ok, err, assertUnreachable } from './types';
+import { ok, err, assertUnreachable, unwrap, mapResult } from './types';
 import type { Result } from './types';
 
 describe('Result type helpers', () => {
@@ -60,6 +60,90 @@ describe('Result type helpers', () => {
             expect(() => {
                 assertUnreachable('unexpected' as never);
             }).toThrow('Exhaustive check failed: "unexpected"');
+        });
+    });
+
+    describe('unwrap()', () => {
+        it('returns the value from a successful Result', () => {
+            const result = ok(42);
+            expect(unwrap(result)).toBe(42);
+        });
+
+        it('returns string value from a successful Result', () => {
+            const result = ok('hello');
+            expect(unwrap(result)).toBe('hello');
+        });
+
+        it('returns object value from a successful Result', () => {
+            const data = { name: 'test', count: 1 };
+            const result = ok(data);
+            expect(unwrap(result)).toEqual(data);
+        });
+
+        it('throws the error from a failed Result', () => {
+            const error = new Error('something went wrong');
+            const result = err(error);
+            expect(() => unwrap(result)).toThrow(error);
+        });
+
+        it('throws custom error objects from a failed Result', () => {
+            const error = new Error('not found');
+            const result: Result<number> = err(error);
+            expect(() => unwrap(result)).toThrow('not found');
+        });
+
+        it('works with Result<void>', () => {
+            const result: Result<void> = ok(undefined);
+            expect(unwrap(result)).toBeUndefined();
+        });
+    });
+
+    describe('mapResult()', () => {
+        it('transforms the value of a successful Result', () => {
+            const result = ok(42);
+            const mapped = mapResult(result, x => x * 2);
+            expect(mapped.ok).toBe(true);
+            if (mapped.ok) {
+                expect(mapped.value).toBe(84);
+            }
+        });
+
+        it('transforms to a different type', () => {
+            const result = ok(42);
+            const mapped = mapResult(result, x => `value: ${x}`);
+            expect(mapped.ok).toBe(true);
+            if (mapped.ok) {
+                expect(mapped.value).toBe('value: 42');
+            }
+        });
+
+        it('passes through errors unchanged', () => {
+            const error = new Error('fail');
+            const result: Result<number> = err(error);
+            const mapped = mapResult(result, x => x * 2);
+            expect(mapped.ok).toBe(false);
+            if (!mapped.ok) {
+                expect(mapped.error).toBe(error);
+            }
+        });
+
+        it('does not call fn on error results', () => {
+            const result: Result<number> = err(new Error('fail'));
+            let called = false;
+            mapResult(result, x => {
+                called = true;
+                return x;
+            });
+            expect(called).toBe(false);
+        });
+
+        it('works with complex transformations', () => {
+            const result = ok({ x: 1, y: 2 });
+            const mapped = mapResult(result, p => p.x + p.y);
+            expect(mapped.ok).toBe(true);
+            if (mapped.ok) {
+                expect(mapped.value).toBe(3);
+            }
         });
     });
 

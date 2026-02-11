@@ -70,12 +70,20 @@ interface DcmpsrcvOptions {
     readonly signal?: AbortSignal | undefined;
 }
 
+/** Pattern matching `..` as a path segment (between separators, or at start/end). */
+const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
+/** Returns true if the path does not contain traversal sequences. */
+function isSafePath(p: string): boolean {
+    return !PATH_TRAVERSAL_PATTERN.test(p);
+}
+
 const DcmpsrcvOptionsSchema = z
     .object({
-        configFile: z.string().min(1),
+        configFile: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in configFile' }),
         receiverId: z.string().min(1).optional(),
         logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).optional(),
-        logConfig: z.string().min(1).optional(),
+        logConfig: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in logConfig' }).optional(),
         startTimeoutMs: z.number().int().positive().optional(),
         drainTimeoutMs: z.number().int().positive().optional(),
         signal: z.instanceof(AbortSignal).optional(),
@@ -150,6 +158,26 @@ class Dcmpsrcv extends DcmtkProcess {
      */
     onEvent<K extends keyof DcmpsrcvEventMap>(event: K, listener: (...args: DcmpsrcvEventMap[K]) => void): this {
         return this.on(event as string, listener as never);
+    }
+
+    /**
+     * Registers a listener for when the receiver starts listening.
+     *
+     * @param listener - Callback receiving listening data (receiver ID and port)
+     * @returns this for chaining
+     */
+    onListening(listener: (...args: DcmpsrcvEventMap['LISTENING']) => void): this {
+        return this.onEvent('LISTENING', listener);
+    }
+
+    /**
+     * Registers a listener for incoming C-STORE requests.
+     *
+     * @param listener - Callback receiving C-STORE request data
+     * @returns this for chaining
+     */
+    onCStoreRequest(listener: (...args: DcmpsrcvEventMap['C_STORE_REQUEST']) => void): this {
+        return this.onEvent('C_STORE_REQUEST', listener);
     }
 
     /**

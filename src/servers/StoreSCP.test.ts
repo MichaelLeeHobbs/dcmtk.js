@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { StoreSCP } from './StoreSCP';
+import { StoreSCP, StoreSCPPreset } from './StoreSCP';
 
 vi.mock('../tools/_resolveBinary', () => ({
     resolveBinary: vi.fn(),
@@ -150,6 +150,28 @@ describe('StoreSCP', () => {
         });
     });
 
+    describe('StoreSCPPreset', () => {
+        it('creates server with BASIC_STORAGE preset', () => {
+            const result = StoreSCP.create({ ...StoreSCPPreset.BASIC_STORAGE, port: 11112 });
+            expect(result.ok).toBe(true);
+        });
+
+        it('creates server with TESTING preset', () => {
+            const result = StoreSCP.create({ ...StoreSCPPreset.TESTING, port: 11112 });
+            expect(result.ok).toBe(true);
+        });
+
+        it('creates server with PRODUCTION preset', () => {
+            const result = StoreSCP.create({ ...StoreSCPPreset.PRODUCTION, port: 11112 });
+            expect(result.ok).toBe(true);
+        });
+
+        it('allows overriding preset values', () => {
+            const result = StoreSCP.create({ ...StoreSCPPreset.PRODUCTION, port: 11112, acseTimeout: 60 });
+            expect(result.ok).toBe(true);
+        });
+    });
+
     describe('event emission via parser', () => {
         it('emits STORED_FILE when parser matches stored file output', () => {
             const result = StoreSCP.create({ port: 11112 });
@@ -196,6 +218,37 @@ describe('StoreSCP', () => {
 
             expect(spy).toHaveBeenCalledOnce();
             expect(spy).toHaveBeenCalledWith({ directory: '/output/2024-01-15' });
+            server[Symbol.dispose]();
+        });
+
+        it('onAssociationReceived convenience method delegates to onEvent', () => {
+            const result = StoreSCP.create({ port: 11112 });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onAssociationReceived(spy);
+
+            server.emit('line', { source: 'stderr', text: 'I: Association Received 10.0.0.1: "SCU" -> "SCP"' });
+
+            expect(spy).toHaveBeenCalledOnce();
+            server[Symbol.dispose]();
+        });
+
+        it('onStoringFile convenience method delegates to onEvent', () => {
+            const result = StoreSCP.create({ port: 11112 });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onStoringFile(spy);
+
+            server.emit('line', { source: 'stderr', text: 'I: storing DICOM file: /output/CT.1.2.3.dcm' });
+
+            expect(spy).toHaveBeenCalledOnce();
+            expect(spy).toHaveBeenCalledWith({ filePath: '/output/CT.1.2.3.dcm' });
             server[Symbol.dispose]();
         });
 

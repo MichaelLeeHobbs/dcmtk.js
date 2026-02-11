@@ -71,10 +71,18 @@ interface WlmscpfsOptions {
     readonly signal?: AbortSignal | undefined;
 }
 
+/** Pattern matching `..` as a path segment (between separators, or at start/end). */
+const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
+/** Returns true if the path does not contain traversal sequences. */
+function isSafePath(p: string): boolean {
+    return !PATH_TRAVERSAL_PATTERN.test(p);
+}
+
 const WlmscpfsOptionsSchema = z
     .object({
         port: z.number().int().min(1).max(65535),
-        worklistDirectory: z.string().min(1),
+        worklistDirectory: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in worklistDirectory' }),
         enableFileRejection: z.boolean().optional(),
         maxPdu: z.number().int().min(4096).max(131072).optional(),
         acseTimeout: z.number().int().positive().optional(),
@@ -174,6 +182,26 @@ class Wlmscpfs extends DcmtkProcess {
      */
     onEvent<K extends keyof WlmscpfsEventMap>(event: K, listener: (...args: WlmscpfsEventMap[K]) => void): this {
         return this.on(event as string, listener as never);
+    }
+
+    /**
+     * Registers a listener for incoming C-FIND requests.
+     *
+     * @param listener - Callback receiving C-FIND request data
+     * @returns this for chaining
+     */
+    onCFindRequest(listener: (...args: WlmscpfsEventMap['C_FIND_REQUEST']) => void): this {
+        return this.onEvent('C_FIND_REQUEST', listener);
+    }
+
+    /**
+     * Registers a listener for when the server starts listening.
+     *
+     * @param listener - Callback receiving listening data (port)
+     * @returns this for chaining
+     */
+    onListening(listener: (...args: WlmscpfsEventMap['LISTENING']) => void): this {
+        return this.onEvent('LISTENING', listener);
     }
 
     /**

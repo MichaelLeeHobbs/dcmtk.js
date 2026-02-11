@@ -164,6 +164,37 @@ describe('Wlmscpfs', () => {
             server[Symbol.dispose]();
         });
 
+        it('onCFindRequest convenience method delegates to onEvent', () => {
+            const result = Wlmscpfs.create({ port: 2005, worklistDirectory: '/var/worklists' });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onCFindRequest(spy);
+
+            server.emit('line', { source: 'stderr', text: 'I: Received C-FIND Request' });
+
+            expect(spy).toHaveBeenCalledOnce();
+            server[Symbol.dispose]();
+        });
+
+        it('onListening convenience method delegates to onEvent', () => {
+            const result = Wlmscpfs.create({ port: 2005, worklistDirectory: '/var/worklists' });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onListening(spy);
+
+            server.emit('line', { source: 'stderr', text: 'I: listening on port 2005' });
+
+            expect(spy).toHaveBeenCalledOnce();
+            expect(spy).toHaveBeenCalledWith({ port: 2005 });
+            server[Symbol.dispose]();
+        });
+
         it('emits ECHO_REQUEST', () => {
             const result = Wlmscpfs.create({ port: 2005, worklistDirectory: '/var/worklists' });
             expect(result.ok).toBe(true);

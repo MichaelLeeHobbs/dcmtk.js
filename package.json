@@ -18,6 +18,46 @@
                 "types": "./dist/index.d.cts",
                 "default": "./dist/index.cjs"
             }
+        },
+        "./tools": {
+            "import": {
+                "types": "./dist/tools.d.ts",
+                "default": "./dist/tools.js"
+            },
+            "require": {
+                "types": "./dist/tools.d.cts",
+                "default": "./dist/tools.cjs"
+            }
+        },
+        "./servers": {
+            "import": {
+                "types": "./dist/servers.d.ts",
+                "default": "./dist/servers.js"
+            },
+            "require": {
+                "types": "./dist/servers.d.cts",
+                "default": "./dist/servers.cjs"
+            }
+        },
+        "./dicom": {
+            "import": {
+                "types": "./dist/dicom.d.ts",
+                "default": "./dist/dicom.js"
+            },
+            "require": {
+                "types": "./dist/dicom.d.cts",
+                "default": "./dist/dicom.cjs"
+            }
+        },
+        "./utils": {
+            "import": {
+                "types": "./dist/utils.d.ts",
+                "default": "./dist/utils.js"
+            },
+            "require": {
+                "types": "./dist/utils.d.cts",
+                "default": "./dist/utils.cjs"
+            }
         }
     },
     "sideEffects": false,

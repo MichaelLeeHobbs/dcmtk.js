@@ -215,6 +215,40 @@ describe('Dcmrecv', () => {
             server[Symbol.dispose]();
         });
 
+        it('onAssociationReceived convenience method delegates to onEvent', () => {
+            const result = Dcmrecv.create({ port: 11112 });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onAssociationReceived(spy);
+
+            server.emit('line', { source: 'stderr', text: 'I: Association Received 10.0.0.1: "SCU" -> "SCP"' });
+
+            expect(spy).toHaveBeenCalledOnce();
+            const data = spy.mock.calls[0]?.[0] as { callingAE: string; calledAE: string };
+            expect(data.callingAE).toBe('SCU');
+            expect(data.calledAE).toBe('SCP');
+            server[Symbol.dispose]();
+        });
+
+        it('onStoredFile convenience method delegates to onEvent', () => {
+            const result = Dcmrecv.create({ port: 11112 });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onStoredFile(spy);
+
+            server.emit('line', { source: 'stderr', text: 'I: Stored received object to file: /tmp/image.dcm' });
+
+            expect(spy).toHaveBeenCalledOnce();
+            expect(spy).toHaveBeenCalledWith({ filePath: '/tmp/image.dcm' });
+            server[Symbol.dispose]();
+        });
+
         it('emits error for fatal events', () => {
             const result = Dcmrecv.create({ port: 11112 });
             expect(result.ok).toBe(true);

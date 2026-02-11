@@ -78,7 +78,7 @@ const DCMRECV_PATTERNS: readonly EventPattern[] = [
     },
     {
         event: DcmrecvEvent.ASSOCIATION_RECEIVED,
-        pattern: /Association Received\s+(.+?):\s*"([^"]+)"\s*->\s*"([^"]+)"/,
+        pattern: /Association Received\s+([^:]+):\s*"([^"]+)"\s*->\s*"([^"]+)"/,
         processor: (match): AssociationReceivedData => ({
             address: match[1] ?? '',
             callingAE: match[2] ?? '',

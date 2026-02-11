@@ -134,6 +134,37 @@ describe('Dcmpsrcv', () => {
             server[Symbol.dispose]();
         });
 
+        it('onListening convenience method delegates to onEvent', () => {
+            const result = Dcmpsrcv.create({ configFile: '/etc/dcmpstat.cfg' });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onListening(spy);
+
+            server.emit('line', { source: 'stderr', text: 'I: Receiver STORESCP1 on port 10004' });
+
+            expect(spy).toHaveBeenCalledOnce();
+            expect(spy).toHaveBeenCalledWith({ receiverId: 'STORESCP1', port: 10004 });
+            server[Symbol.dispose]();
+        });
+
+        it('onCStoreRequest convenience method delegates to onEvent', () => {
+            const result = Dcmpsrcv.create({ configFile: '/etc/dcmpstat.cfg' });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onCStoreRequest(spy);
+
+            server.emit('line', { source: 'stderr', text: 'I: Received Store SCP RQ: MsgID 1' });
+
+            expect(spy).toHaveBeenCalledOnce();
+            server[Symbol.dispose]();
+        });
+
         it('emits ECHO_REQUEST with message ID', () => {
             const result = Dcmpsrcv.create({ configFile: '/etc/dcmpstat.cfg' });
             expect(result.ok).toBe(true);

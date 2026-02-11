@@ -137,6 +137,40 @@ describe('DcmprsCP', () => {
             server[Symbol.dispose]();
         });
 
+        it('onDatabaseReady convenience method delegates to onEvent', () => {
+            const result = DcmprsCP.create({ configFile: '/etc/dcmpstat.cfg' });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onDatabaseReady(spy);
+
+            server.emit('line', { source: 'stderr', text: "I: Using database in directory '/var/lib/dcmtk/db'" });
+
+            expect(spy).toHaveBeenCalledOnce();
+            expect(spy).toHaveBeenCalledWith({ directory: '/var/lib/dcmtk/db' });
+            server[Symbol.dispose]();
+        });
+
+        it('onAssociationReceived convenience method delegates to onEvent', () => {
+            const result = DcmprsCP.create({ configFile: '/etc/dcmpstat.cfg' });
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+
+            const server = result.value;
+            const spy = vi.fn();
+            server.onAssociationReceived(spy);
+
+            server.emit('line', {
+                source: 'stderr',
+                text: 'I: Association Received ("192.168.1.50:PRINTSCU -> IHEFULL")',
+            });
+
+            expect(spy).toHaveBeenCalledOnce();
+            server[Symbol.dispose]();
+        });
+
         it('emits ASSOCIATION_ACKNOWLEDGED with maxSendPDV', () => {
             const result = DcmprsCP.create({ configFile: '/etc/dcmpstat.cfg' });
             expect(result.ok).toBe(true);

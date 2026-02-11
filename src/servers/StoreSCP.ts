@@ -110,12 +110,54 @@ interface StoreSCPOptions {
     readonly signal?: AbortSignal | undefined;
 }
 
+// ---------------------------------------------------------------------------
+// Configuration presets
+// ---------------------------------------------------------------------------
+
+/**
+ * Pre-configured option sets for common StoreSCP deployment patterns.
+ * Spread a preset into your options to avoid specifying boilerplate.
+ *
+ * @example
+ * ```ts
+ * StoreSCP.create({ ...StoreSCPPreset.PRODUCTION, port: 11112, outputDirectory: '/data' });
+ * ```
+ */
+const StoreSCPPreset = {
+    /** Basic storage: unique filenames to avoid collisions. */
+    BASIC_STORAGE: {
+        uniqueFilenames: true,
+    },
+    /** Testing: unique filenames, preserving raw transfer syntax. */
+    TESTING: {
+        uniqueFilenames: true,
+        bitPreserving: true,
+    },
+    /** Production: unique filenames with reasonable timeouts. */
+    PRODUCTION: {
+        uniqueFilenames: true,
+        acseTimeout: 30,
+        dimseTimeout: 60,
+    },
+} as const satisfies Record<string, Partial<StoreSCPOptions>>;
+
+/** Names of the available StoreSCP configuration presets. */
+type StoreSCPPresetName = keyof typeof StoreSCPPreset;
+
+/** Pattern matching `..` as a path segment (between separators, or at start/end). */
+const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
+/** Returns true if the path does not contain traversal sequences. */
+function isSafePath(p: string): boolean {
+    return !PATH_TRAVERSAL_PATTERN.test(p);
+}
+
 const StoreSCPOptionsSchema = z
     .object({
         port: z.number().int().min(1).max(65535),
         aeTitle: z.string().min(1).max(16).optional(),
-        outputDirectory: z.string().min(1).optional(),
-        configFile: z.string().min(1).optional(),
+        outputDirectory: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in outputDirectory' }).optional(),
+        configFile: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in configFile' }).optional(),
         configProfile: z.string().min(1).optional(),
         preferredTransferSyntax: z.enum(['little-endian', 'big-endian', 'implicit', 'accept-all']).optional(),
         sortByStudy: z.boolean().optional(),
@@ -288,6 +330,26 @@ class StoreSCP extends DcmtkProcess {
     }
 
     /**
+     * Registers a listener for incoming associations.
+     *
+     * @param listener - Callback receiving association data
+     * @returns this for chaining
+     */
+    onAssociationReceived(listener: (...args: StoreSCPEventMap['ASSOCIATION_RECEIVED']) => void): this {
+        return this.onEvent('ASSOCIATION_RECEIVED', listener);
+    }
+
+    /**
+     * Registers a listener for files being stored to disk.
+     *
+     * @param listener - Callback receiving storing file data
+     * @returns this for chaining
+     */
+    onStoringFile(listener: (...args: StoreSCPEventMap['STORING_FILE']) => void): this {
+        return this.onEvent('STORING_FILE', listener);
+    }
+
+    /**
      * Creates a new StoreSCP server instance.
      *
      * @param options - Configuration options for the storescp server
@@ -351,5 +413,5 @@ class StoreSCP extends DcmtkProcess {
     }
 }
 
-export { StoreSCP, PreferredTransferSyntax };
-export type { StoreSCPOptions, StoreSCPEventMap, PreferredTransferSyntaxValue };
+export { StoreSCP, PreferredTransferSyntax, StoreSCPPreset };
+export type { StoreSCPOptions, StoreSCPEventMap, PreferredTransferSyntaxValue, StoreSCPPresetName };

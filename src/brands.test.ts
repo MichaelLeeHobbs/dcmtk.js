@@ -1,3 +1,4 @@
+import { normalize } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { createDicomTag, createAETitle, createDicomTagPath, createSOPClassUID, createTransferSyntaxUID, createDicomFilePath, createPort } from './brands';
 
@@ -161,10 +162,10 @@ describe('Branded type factories', () => {
     });
 
     describe('createDicomFilePath()', () => {
-        it('accepts a valid path', () => {
+        it('accepts a valid path and normalizes it', () => {
             const result = createDicomFilePath('/data/study/image.dcm');
             expect(result.ok).toBe(true);
-            if (result.ok) expect(result.value).toBe('/data/study/image.dcm');
+            if (result.ok) expect(result.value).toBe(normalize('/data/study/image.dcm'));
         });
 
         it('accepts Windows paths', () => {
@@ -175,6 +176,23 @@ describe('Branded type factories', () => {
         it('rejects empty string', () => {
             const result = createDicomFilePath('');
             expect(result.ok).toBe(false);
+        });
+
+        it('rejects path traversal with ..', () => {
+            const result = createDicomFilePath('/data/../etc/passwd');
+            expect(result.ok).toBe(false);
+            if (!result.ok) expect(result.error.message).toContain('path traversal');
+        });
+
+        it('rejects path traversal with leading ..', () => {
+            const result = createDicomFilePath('../secret/file.dcm');
+            expect(result.ok).toBe(false);
+            if (!result.ok) expect(result.error.message).toContain('path traversal');
+        });
+
+        it('accepts paths with double-dot in filename (not traversal)', () => {
+            const result = createDicomFilePath('/data/file..name.dcm');
+            expect(result.ok).toBe(true);
         });
     });
 

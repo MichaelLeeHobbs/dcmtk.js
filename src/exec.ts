@@ -2,7 +2,7 @@
  * Short-lived DCMTK process execution.
  *
  * Two execution modes:
- * - `execCommand()` — uses `child_process.exec()`, suitable when args are fully controlled
+ * - `execCommand()` — convenience wrapper; uses `spawn()` internally for safety
  * - `spawnCommand()` — uses `child_process.spawn()`, safer for user-supplied values (Rule 7.4)
  *
  * Both enforce mandatory timeouts (Rule 4.2) and return `Result<DcmtkProcessResult>`.
@@ -10,7 +10,7 @@
  * @module exec
  */
 
-import { exec, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import kill from 'tree-kill';
 import type { Result, DcmtkProcessResult, ExecOptions, SpawnOptions } from './types';
@@ -32,13 +32,14 @@ function killTree(pid: number): void {
 }
 
 /**
- * Executes a DCMTK binary using `child_process.exec()`.
+ * Executes a DCMTK binary as a short-lived process.
  *
- * Use this when all arguments are fully controlled (not user-supplied).
- * For user-supplied DICOM values, use {@link spawnCommand} instead (Rule 7.4).
+ * **Security:** This function uses `child_process.spawn()` internally, passing
+ * arguments as an array to avoid shell interpretation. This eliminates shell
+ * injection risks regardless of argument content (Rule 7.4).
  *
  * @param binary - Full path to the DCMTK binary
- * @param args - Command-line arguments
+ * @param args - Command-line arguments (passed directly, no shell interpolation)
  * @param options - Execution options (timeout, cwd, signal)
  * @returns A Result containing the process output or an error
  * @throws Never throws for expected failures (Rule 6.1)
@@ -53,38 +54,14 @@ function killTree(pid: number): void {
  */
 async function execCommand(binary: string, args: readonly string[], options?: ExecOptions): Promise<Result<DcmtkProcessResult>> {
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    const command = [binary, ...args].map(a => (a.includes(' ') ? `"${a}"` : a)).join(' ');
 
     return new Promise(resolve => {
-        const child = exec(command, {
+        const child = spawn(binary, [...args], {
             cwd: options?.cwd,
-            timeout: timeoutMs,
-            maxBuffer: MAX_BUFFER_BYTES,
             windowsHide: true,
             signal: options?.signal,
         });
-
-        let stdout = '';
-        let stderr = '';
-
-        child.stdout?.on('data', (chunk: Buffer | string) => {
-            stdout += String(chunk);
-        });
-        child.stderr?.on('data', (chunk: Buffer | string) => {
-            stderr += String(chunk);
-        });
-
-        /* v8 ignore next 5 -- exec error events are rare and hard to trigger reliably */
-        child.on('error', (error: Error) => {
-            if (child.pid !== undefined && child.pid !== null) {
-                killTree(child.pid);
-            }
-            resolve(err(new Error(`Process error: ${error.message}`)));
-        });
-
-        child.on('close', (code: number | null) => {
-            resolve(ok({ stdout, stderr, exitCode: code ?? 1 }));
-        });
+        wireSpawnListeners(child, timeoutMs, resolve);
     });
 }
 
@@ -135,8 +112,9 @@ function wireSpawnListeners(child: ChildProcess, timeoutMs: number, resolve: (re
 /**
  * Executes a DCMTK binary using `child_process.spawn()`.
  *
- * Safer than {@link execCommand} for user-supplied values because arguments
- * are passed as an array, avoiding shell injection (Rule 7.4).
+ * Like {@link execCommand}, arguments are passed as an array to avoid shell
+ * injection (Rule 7.4). This variant additionally supports custom environment
+ * variables via the `env` option.
  *
  * @param binary - Full path to the DCMTK binary
  * @param args - Command-line arguments (passed directly, no shell interpolation)

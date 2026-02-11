@@ -63,13 +63,21 @@ interface DcmprsCPOptions {
     readonly signal?: AbortSignal | undefined;
 }
 
+/** Pattern matching `..` as a path segment (between separators, or at start/end). */
+const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+
+/** Returns true if the path does not contain traversal sequences. */
+function isSafePath(p: string): boolean {
+    return !PATH_TRAVERSAL_PATTERN.test(p);
+}
+
 const DcmprsCPOptionsSchema = z
     .object({
-        configFile: z.string().min(1),
+        configFile: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in configFile' }),
         printer: z.string().min(1).optional(),
         dump: z.boolean().optional(),
         logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).optional(),
-        logConfig: z.string().min(1).optional(),
+        logConfig: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in logConfig' }).optional(),
         startTimeoutMs: z.number().int().positive().optional(),
         drainTimeoutMs: z.number().int().positive().optional(),
         signal: z.instanceof(AbortSignal).optional(),
@@ -144,6 +152,26 @@ class DcmprsCP extends DcmtkProcess {
      */
     onEvent<K extends keyof DcmprsCPEventMap>(event: K, listener: (...args: DcmprsCPEventMap[K]) => void): this {
         return this.on(event as string, listener as never);
+    }
+
+    /**
+     * Registers a listener for when the database is ready.
+     *
+     * @param listener - Callback receiving database ready data
+     * @returns this for chaining
+     */
+    onDatabaseReady(listener: (...args: DcmprsCPEventMap['DATABASE_READY']) => void): this {
+        return this.onEvent('DATABASE_READY', listener);
+    }
+
+    /**
+     * Registers a listener for incoming associations.
+     *
+     * @param listener - Callback receiving association data
+     * @returns this for chaining
+     */
+    onAssociationReceived(listener: (...args: DcmprsCPEventMap['ASSOCIATION_RECEIVED']) => void): this {
+        return this.onEvent('ASSOCIATION_RECEIVED', listener);
     }
 
     /**
