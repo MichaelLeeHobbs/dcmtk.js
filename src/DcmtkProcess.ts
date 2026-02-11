@@ -15,7 +15,7 @@ import type { ChildProcess } from 'node:child_process';
 import kill from 'tree-kill';
 import type { Result, LineSource } from './types';
 import { ok, err } from './types';
-import { DEFAULT_START_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS, MAX_BUFFER_BYTES } from './constants';
+import { DEFAULT_START_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS } from './constants';
 
 // ---------------------------------------------------------------------------
 // Event types
@@ -41,8 +41,6 @@ interface DcmtkProcessConfig {
     readonly startTimeoutMs?: number | undefined;
     /** Timeout for graceful drain during stop(), in milliseconds. */
     readonly drainTimeoutMs?: number | undefined;
-    /** Maximum buffer bytes for stdout/stderr accumulation (Rule 8.1). */
-    readonly maxBufferBytes?: number | undefined;
     /**
      * A function that inspects each output line and returns `true` when
      * the process is considered "started" (e.g., "listening on port X").
@@ -94,8 +92,6 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
     private child: ChildProcess | null = null;
     private stdoutBuffer = '';
     private stderrBuffer = '';
-    private stdoutBytes = 0;
-    private stderrBytes = 0;
     private readonly config: DcmtkProcessConfig;
 
     constructor(config: DcmtkProcessConfig) {
@@ -133,7 +129,6 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
         }
         this.state = ProcessState.STARTING;
         const timeoutMs = this.config.startTimeoutMs ?? DEFAULT_START_TIMEOUT_MS;
-        const maxBuf = this.config.maxBufferBytes ?? MAX_BUFFER_BYTES;
 
         return new Promise<Result<void>>(resolve => {
             let settled = false;
@@ -164,7 +159,7 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
                 return;
             }
             /* v8 ignore stop */
-            this.wireChildEvents(settle, maxBuf);
+            this.wireChildEvents(settle);
         });
     }
 
@@ -236,7 +231,7 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
     /**
      * Wires all child process event handlers for startup.
      */
-    private wireChildEvents(settle: (result: Result<void>) => void, maxBuf: number): void {
+    private wireChildEvents(settle: (result: Result<void>) => void): void {
         const child = this.child;
         if (!child) return;
 
@@ -258,10 +253,10 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
         });
 
         child.stdout?.on('data', (chunk: Buffer | string) => {
-            this.handleData('stdout', chunk, maxBuf);
+            this.handleData('stdout', chunk);
         });
         child.stderr?.on('data', (chunk: Buffer | string) => {
-            this.handleData('stderr', chunk, maxBuf);
+            this.handleData('stderr', chunk);
         });
 
         child.on('spawn', () => {
@@ -292,21 +287,12 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
         this.on('line', onLine);
     }
 
-    private handleData(source: LineSource, chunk: Buffer | string, maxBuf: number): void {
-        const str = String(chunk);
-        const byteLen = Buffer.byteLength(str);
-
+    private handleData(source: LineSource, chunk: Buffer | string): void {
         if (source === 'stdout') {
-            this.stdoutBytes += byteLen;
-            if (this.stdoutBytes <= maxBuf) {
-                this.stdoutBuffer += str;
-            }
+            this.stdoutBuffer += String(chunk);
             this.processLines(source, 'stdoutBuffer');
         } else {
-            this.stderrBytes += byteLen;
-            if (this.stderrBytes <= maxBuf) {
-                this.stderrBuffer += str;
-            }
+            this.stderrBuffer += String(chunk);
             this.processLines(source, 'stderrBuffer');
         }
     }

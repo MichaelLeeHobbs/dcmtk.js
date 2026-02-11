@@ -6,7 +6,6 @@ import {
     DEFAULT_BLOCK_TIMEOUT_MS,
     PDU_SIZE,
     REQUIRED_BINARIES,
-    MAX_BUFFER_BYTES,
     MAX_BLOCK_LINES,
 } from './constants';
 
@@ -53,10 +52,6 @@ describe('constants', () => {
     });
 
     describe('buffer limits', () => {
-        it('has positive max buffer size', () => {
-            expect(MAX_BUFFER_BYTES).toBeGreaterThan(0);
-        });
-
         it('has positive max block lines', () => {
             expect(MAX_BLOCK_LINES).toBeGreaterThan(0);
         });

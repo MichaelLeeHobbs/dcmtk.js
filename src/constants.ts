@@ -61,9 +61,6 @@ const REQUIRED_BINARIES = ['dcm2json', 'dcm2xml', 'dcmodify', 'dcmdump', 'dcmrec
 // Bounded limits (Rule 8.1: all loops and buffers must have upper bounds)
 // ---------------------------------------------------------------------------
 
-/** Maximum stdout/stderr buffer size before truncation (10 MB). */
-const MAX_BUFFER_BYTES = 10 * 1024 * 1024;
-
 /** Maximum lines accumulated in multi-line block parser. */
 const MAX_BLOCK_LINES = 1_000;
 
@@ -83,7 +80,6 @@ export {
     WINDOWS_SEARCH_PATHS,
     UNIX_SEARCH_PATHS,
     REQUIRED_BINARIES,
-    MAX_BUFFER_BYTES,
     MAX_BLOCK_LINES,
     MAX_EVENT_PATTERNS,
     MAX_TRAVERSAL_DEPTH,

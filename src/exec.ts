@@ -15,7 +15,7 @@ import type { ChildProcess } from 'node:child_process';
 import kill from 'tree-kill';
 import type { Result, DcmtkProcessResult, ExecOptions, SpawnOptions } from './types';
 import { ok, err } from './types';
-import { DEFAULT_TIMEOUT_MS, MAX_BUFFER_BYTES } from './constants';
+import { DEFAULT_TIMEOUT_MS } from './constants';
 
 /**
  * Kills a process tree by PID. Wraps tree-kill in a promise.
@@ -71,8 +71,6 @@ async function execCommand(binary: string, args: readonly string[], options?: Ex
 function wireSpawnListeners(child: ChildProcess, timeoutMs: number, resolve: (result: Result<DcmtkProcessResult>) => void): void {
     let stdout = '';
     let stderr = '';
-    let stdoutBytes = 0;
-    let stderrBytes = 0;
     let settled = false;
 
     const settle = (result: Result<DcmtkProcessResult>): void => {
@@ -88,15 +86,11 @@ function wireSpawnListeners(child: ChildProcess, timeoutMs: number, resolve: (re
     }, timeoutMs);
 
     child.stdout?.on('data', (chunk: Buffer | string) => {
-        const str = String(chunk);
-        stdoutBytes += Buffer.byteLength(str);
-        if (stdoutBytes <= MAX_BUFFER_BYTES) stdout += str;
+        stdout += String(chunk);
     });
 
     child.stderr?.on('data', (chunk: Buffer | string) => {
-        const str = String(chunk);
-        stderrBytes += Buffer.byteLength(str);
-        if (stderrBytes <= MAX_BUFFER_BYTES) stderr += str;
+        stderr += String(chunk);
     });
 
     child.on('error', (error: Error) => {
