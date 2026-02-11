@@ -171,25 +171,28 @@ Error messages expose filesystem paths, environment variable names, and DCMTK di
 
 This is the most significant area of concern in the project. The 99.42% coverage number is technically accurate but profoundly misleading.
 
-### TEST-01: Mock Enclosure Anti-Pattern (CRITICAL)
+### ~~TEST-01: Mock Enclosure Anti-Pattern (CRITICAL)~~
 
-**Files:** All 53 files in `src/tools/*.test.ts`
+**RESOLVED:** All 51 mock-only tool test files deleted. Replaced with 32 integration test files in `test/integration/tools/` that exercise real DCMTK binaries with actual DICOM files. Only 4 internal utility tests remain in `src/tools/` (`_toolError`, `_resolveBinary`, `_repairJson`, `_xmlToJson`). Tool source files excluded from unit coverage since they are now covered by integration tests.
 
-Every single tool wrapper test mocks both `../exec` and `./_resolveBinary`. The tests never call a real DCMTK binary. They verify that mocked functions were
-called with expected arguments - nothing more.
+~~**Files:** All 53 files in `src/tools/*.test.ts`~~
 
-```typescript
+~~Every single tool wrapper test mocks both `../exec` and `./_resolveBinary`. The tests never call a real DCMTK binary. They verify that mocked functions were
+called with expected arguments - nothing more.~~
+
+~~```typescript
 // This is what 99.42% of tool tests look like:
 mockedExec.mockResolvedValue({ok: true, value: {stdout: SAMPLE_XML, stderr: '', exitCode: 0}});
 const result = await dcm2xml('/path/to/test.dcm');
 expect(mockedExec).toHaveBeenCalledWith('/usr/local/bin/dcm2xml', ['/path/to/test.dcm'], ...);
-```
 
-**What this tests:** Argument construction logic.
-**What this does NOT test:** Whether dcm2xml actually produces valid XML. Whether the parser handles real output. Whether the tool actually works.
+````~~
 
-A completely broken implementation that constructs the right arguments but produces garbage would pass every test. The test suite is essentially a
-mock-verification framework, not a behavior validation suite.
+~~**What this tests:** Argument construction logic.
+**What this does NOT test:** Whether dcm2xml actually produces valid XML. Whether the parser handles real output. Whether the tool actually works.~~
+
+~~A completely broken implementation that constructs the right arguments but produces garbage would pass every test. The test suite is essentially a
+mock-verification framework, not a behavior validation suite.~~
 
 ---
 
@@ -199,7 +202,7 @@ mock-verification framework, not a behavior validation suite.
 
 ```typescript
 exclude: ['test/integration/**/*.test.ts'];
-```
+````
 
 Integration tests - the only tests that call real DCMTK binaries - are excluded from the coverage calculation. The 99.42% number represents unit-test-with-mocks
 coverage only.
@@ -216,16 +219,18 @@ likely never run in CI.
 
 ---
 
-### TEST-03: Only 5 of 51 Tools Have Integration Tests (CRITICAL)
+### ~~TEST-03: Only 5 of 51 Tools Have Integration Tests (CRITICAL)~~
 
-**Files:** `test/integration/tools/`
+**RESOLVED:** All 51 tools now have integration tests in `test/integration/tools/` (32 test files covering all tools). Tests use `describe.skipIf(!dcmtkAvailable)` for graceful skipping when DCMTK is not installed.
 
-Only a handful of tools have integration tests. The remaining 46 tools are tested exclusively through mocks. Real DCMTK behavior is unknown for:
+~~**Files:** `test/integration/tools/`~~
 
-- All compression tools (dcmcrle, dcmdjpeg, dcmcjpls, etc.)
-- All conversion tools (img2dcm, pdf2dcm, stl2dcm, etc.)
-- All network tools (storescu, getscu, movescu, etc.)
-- All structured report tools (dsrdump, xml2dsr, etc.)
+~~Only a handful of tools have integration tests. The remaining 46 tools are tested exclusively through mocks. Real DCMTK behavior is unknown for:~~
+
+~~- All compression tools (dcmcrle, dcmdjpeg, dcmcjpls, etc.)~~
+~~- All conversion tools (img2dcm, pdf2dcm, stl2dcm, etc.)~~
+~~- All network tools (storescu, getscu, movescu, etc.)~~
+~~- All structured report tools (dsrdump, xml2dsr, etc.)~~
 
 ---
 
