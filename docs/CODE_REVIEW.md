@@ -661,10 +661,12 @@ wrapper exists.~~
 
 ---
 
-### CI-02: No DCMTK Installation in CI (MEDIUM)
+### ~~CI-02: No DCMTK Installation in CI (MEDIUM)~~
 
-Integration tests conditionally skip if DCMTK is not installed. The CI workflow has no step to install DCMTK. This means integration tests likely never run in
-CI, making the integration test suite decorative.
+~~Integration tests conditionally skip if DCMTK is not installed. The CI workflow has no step to install DCMTK. This means integration tests likely never run in
+CI, making the integration test suite decorative.~~
+
+~~**Resolution:** Added `integration-test` job to CI using `michaelleehobbs/nodejs-dcmtk:dcmtk-3.7.0-nodejs-24.12.0-alpine3.23` Docker image (DCMTK 3.7.0 + Node.js 24). Build job now gates on integration tests passing.~~
 
 ---
 
@@ -739,8 +741,8 @@ dependencies.
 | ~~Critical~~ | ~~Fix ReDoS patterns (`.+?` -> `[^:]+`)~~             | ~~1h~~   | ~~DONE~~ |
 | ~~High~~     | ~~Add path normalization to `createDicomFilePath()`~~ | ~~1h~~   | ~~DONE~~ |
 | ~~High~~     | ~~Add path validation to server Zod schemas~~         | ~~1h~~   | ~~DONE~~ |
-| Medium       | Extract shared regex patterns to `src/patterns.ts`    | 1h       |          |
-| Medium       | Document timeout units on all server option fields    | 1h       |          |
+| ~~Medium~~   | ~~Extract shared regex patterns to `src/patterns.ts`~~    | ~~1h~~   | ~~DONE~~ |
+| ~~Medium~~   | ~~Document timeout units on all server option fields~~    | ~~1h~~   | ~~DONE~~ |
 | ~~Low~~      | ~~Add `workflow_dispatch` to CI workflow~~            | ~~5min~~ | ~~DONE~~ |
 
 ### Phase 2: Testing Overhaul (3-5 days)
@@ -752,16 +754,16 @@ dependencies.
 | ~~Critical~~ | ~~Add AbortSignal race condition tests~~                  | ~~1d~~   | ~~DONE~~ |
 | ~~High~~     | ~~Add negative type tests to `test/types.test.ts`~~       | ~~0.5d~~ | ~~DONE~~ |
 | ~~High~~     | ~~Add malformed XML/JSON input tests~~                    | ~~1d~~   | ~~DONE~~ |
-| Medium       | Invert fuzz test numRuns (meaningful properties get more) | 2h       |          |
-| Medium       | Widen fuzz arbitrary ranges to match real DICOM values    | 2h       |          |
+| ~~Medium~~   | ~~Invert fuzz test numRuns (meaningful properties get more)~~ | ~~2h~~   | ~~DONE~~ |
+| ~~Medium~~   | ~~Widen fuzz arbitrary ranges to match real DICOM values~~    | ~~2h~~   | ~~DONE~~ |
 
 ### Phase 3: CI & Platform (1-2 days)
 
 | Priority | Item                                              | Effort | Status   |
 | -------- | ------------------------------------------------- | ------ | -------- |
 | ~~High~~ | ~~Add Windows and macOS to CI matrix~~            | ~~2h~~ | ~~DONE~~ |
-| Medium   | Install DCMTK in CI for integration tests         | 4h     |          |
-| Medium   | Run integration tests in CI (not just unit tests) | 2h     |          |
+| ~~Medium~~   | ~~Install DCMTK in CI for integration tests~~         | ~~4h~~     | ~~DONE~~ |
+| ~~Medium~~   | ~~Run integration tests in CI (not just unit tests)~~ | ~~2h~~     | ~~DONE~~ |
 | Low      | Bump version to 0.2.0+ to reflect maturity        | 5min   |          |
 
 ### Phase 4: Documentation (2-3 days)
