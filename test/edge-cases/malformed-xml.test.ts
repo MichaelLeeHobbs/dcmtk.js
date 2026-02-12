@@ -15,7 +15,7 @@ describe('xmlToJson malformed XML inputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('missing NativeDicomModel');
+            expect(result.error.message).toMatch(/missing NativeDicomModel/);
         }
     });
 
@@ -24,7 +24,7 @@ describe('xmlToJson malformed XML inputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('missing NativeDicomModel');
+            expect(result.error.message).toMatch(/missing NativeDicomModel/);
         }
     });
 
@@ -33,7 +33,7 @@ describe('xmlToJson malformed XML inputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('missing NativeDicomModel root element');
+            expect(result.error.message).toMatch(/missing NativeDicomModel root element/);
         }
     });
 

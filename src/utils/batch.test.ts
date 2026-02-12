@@ -273,6 +273,25 @@ describe('batch()', () => {
         });
     });
 
+    describe('rejection handling', () => {
+        it('cleans up in-flight set on rejection', async () => {
+            const result = await batch(
+                [1, 2, 3, 4],
+                item => {
+                    if (item === 2) {
+                        return Promise.reject(new Error('boom'));
+                    }
+                    return Promise.resolve(ok(item));
+                },
+                { concurrency: 2 }
+            );
+
+            expect(result.failed).toBe(1);
+            expect(result.succeeded).toBe(3);
+            expect(result.results).toHaveLength(4);
+        });
+    });
+
     describe('edge cases', () => {
         it('handles items with undefined concurrency option', async () => {
             const result = await batch([1, 2], item => Promise.resolve(ok(item)), { concurrency: undefined });

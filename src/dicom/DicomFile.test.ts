@@ -72,7 +72,7 @@ describe('DicomFile', () => {
             const result = await DicomFile.open('');
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('empty string');
+                expect(result.error.message).toMatch(/empty string/);
             }
         });
 
@@ -85,7 +85,7 @@ describe('DicomFile', () => {
             const result = await DicomFile.open('/path/to/test.dcm');
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('dcm2json');
+                expect(result.error.message).toMatch(/dcm2json/);
             }
         });
 
@@ -98,7 +98,7 @@ describe('DicomFile', () => {
             const result = await DicomFile.open('/path/to/test.dcm');
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('Invalid DICOM JSON');
+                expect(result.error.message).toMatch(/Invalid DICOM JSON/);
             }
         });
 
@@ -221,7 +221,7 @@ describe('DicomFile', () => {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('dcmodify');
+                expect(result.error.message).toMatch(/dcmodify/);
             }
         });
 
@@ -337,7 +337,7 @@ describe('DicomFile', () => {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('copy');
+                expect(result.error.message).toMatch(/copy/);
             }
         });
 
@@ -350,7 +350,7 @@ describe('DicomFile', () => {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('empty string');
+                expect(result.error.message).toMatch(/empty string/);
             }
         });
     });
@@ -380,7 +380,7 @@ describe('DicomFile', () => {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('stat');
+                expect(result.error.message).toMatch(/stat/);
             }
         });
     });
@@ -408,7 +408,7 @@ describe('DicomFile', () => {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('delete');
+                expect(result.error.message).toMatch(/delete/);
             }
         });
     });

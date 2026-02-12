@@ -33,7 +33,7 @@ describe('execCommand AbortSignal handling', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('abort');
+            expect(result.error.message).toMatch(/abort/i);
         }
     });
 
@@ -105,7 +105,7 @@ describe('spawnCommand AbortSignal handling', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('abort');
+            expect(result.error.message).toMatch(/abort/i);
         }
     });
 

@@ -178,7 +178,7 @@ describe('xmlToJson()', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('missing NativeDicomModel root element');
+            expect(result.error.message).toMatch(/missing NativeDicomModel root element/);
         }
     });
 
@@ -233,6 +233,42 @@ describe('xmlToJson()', () => {
             const nameObj = pn!.Value![0] as Record<string, string>;
             expect(nameObj['Alphabetic']).toBe('Yamada^Tarou');
             expect(nameObj['Ideographic']).toBe('山田^太郎');
+        }
+    });
+
+    it('handles PersonName with non-object pnNode', () => {
+        // When PersonName contains a primitive instead of an object, convertPersonName should return {}
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<NativeDicomModel>
+  <DicomAttribute tag="00100010" vr="PN" keyword="PatientName">
+    <PersonName number="1">plain-text</PersonName>
+  </DicomAttribute>
+</NativeDicomModel>`;
+
+        const result = xmlToJson(xml);
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            // Should handle gracefully — Value may be empty or contain empty PN
+            const pn = result.value['00100010'];
+            expect(pn?.vr).toBe('PN');
+        }
+    });
+
+    it('handles sequence with non-object items', () => {
+        // When a sequence Item is a primitive, it should be skipped
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<NativeDicomModel>
+  <DicomAttribute tag="00081115" vr="SQ" keyword="ReferencedSeriesSequence">
+    <Item>plain-text</Item>
+  </DicomAttribute>
+</NativeDicomModel>`;
+
+        const result = xmlToJson(xml);
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.value['00081115']?.vr).toBe('SQ');
         }
     });
 

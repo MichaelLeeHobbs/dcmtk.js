@@ -127,7 +127,6 @@ async function spawnCommand(binary: string, args: readonly string[], options?: S
     return new Promise(resolve => {
         const child = spawn(binary, [...args], {
             cwd: options?.cwd,
-            /* v8 ignore next -- env override branch */
             env: options?.env ? { ...process.env, ...options.env } : undefined,
             windowsHide: true,
             signal: options?.signal,

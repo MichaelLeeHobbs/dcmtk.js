@@ -309,6 +309,28 @@ describe('retry()', () => {
             expect(operation).toHaveBeenCalledTimes(1);
             expect(result.ok).toBe(false);
         });
+
+        it('aborts during delay wait and stops retrying', async () => {
+            vi.useRealTimers();
+            const controller = new AbortController();
+            const operation = vi.fn((): Promise<Result<number>> => {
+                return Promise.resolve(err(new Error('fail')));
+            });
+
+            // Abort after 50ms — the delay is 100ms so abort fires mid-wait
+            setTimeout(() => controller.abort(), 50);
+
+            const result = await retry(operation, {
+                maxAttempts: 5,
+                initialDelayMs: 200,
+                signal: controller.signal,
+            });
+
+            // First attempt runs, then abort during wait prevents second attempt
+            expect(operation).toHaveBeenCalledTimes(1);
+            expect(result.ok).toBe(false);
+            vi.useFakeTimers();
+        });
     });
 
     describe('default options', () => {

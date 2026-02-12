@@ -76,7 +76,7 @@ describe('DicomDataset.fromJson', () => {
     it('rejects null', () => {
         const result = DicomDataset.fromJson(null);
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('non-null');
+        if (!result.ok) expect(result.error.message).toMatch(/non-null/);
     });
 
     it('rejects undefined', () => {
@@ -87,7 +87,7 @@ describe('DicomDataset.fromJson', () => {
     it('rejects arrays', () => {
         const result = DicomDataset.fromJson([1, 2, 3]);
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('non-array');
+        if (!result.ok) expect(result.error.message).toMatch(/non-array/);
     });
 
     it('rejects primitives', () => {
@@ -128,13 +128,13 @@ describe('DicomDataset.getElement', () => {
     it('returns error for unknown tag', () => {
         const result = ds.getElement('99999999');
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('not found');
+        if (!result.ok) expect(result.error.message).toMatch(/not found/);
     });
 
     it('returns error for invalid tag format', () => {
         const result = ds.getElement('INVALID');
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('Invalid tag format');
+        if (!result.ok) expect(result.error.message).toMatch(/Invalid tag format/);
     });
 
     it('returns InlineBinary element', () => {
@@ -172,7 +172,7 @@ describe('DicomDataset.getValue', () => {
     it('returns error for tag with no Value property', () => {
         const result = ds.getValue('00280101');
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('no Value');
+        if (!result.ok) expect(result.error.message).toMatch(/no Value/);
     });
 
     it('returns error for missing tag', () => {
@@ -212,7 +212,7 @@ describe('DicomDataset.getFirstValue', () => {
         if (!r.ok) return;
         const result = r.value.getFirstValue('00100020');
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('empty');
+        if (!result.ok) expect(result.error.message).toMatch(/empty/);
     });
 });
 
@@ -300,7 +300,7 @@ describe('DicomDataset.getNumber', () => {
     it('returns error for non-numeric string', () => {
         const result = ds.getNumber('00100020');
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('Cannot convert');
+        if (!result.ok) expect(result.error.message).toMatch(/Cannot convert/);
     });
 
     it('returns error for missing tag', () => {
@@ -311,7 +311,7 @@ describe('DicomDataset.getNumber', () => {
     it('returns error for element with no Value', () => {
         const result = ds.getNumber('00280101');
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('no Value');
+        if (!result.ok) expect(result.error.message).toMatch(/no Value/);
     });
 
     it('returns error for non-numeric type', () => {
@@ -319,7 +319,7 @@ describe('DicomDataset.getNumber', () => {
         if (!r.ok) return;
         const result = r.value.getNumber('00280010');
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('not numeric');
+        if (!result.ok) expect(result.error.message).toMatch(/not numeric/);
     });
 
     it('returns error for empty Value array', () => {
@@ -445,19 +445,19 @@ describe('DicomDataset.getElementAtPath', () => {
     it('returns error for non-existent intermediate tag', () => {
         const result = ds.getElementAtPath('(9999,9999)[0].(0010,0010)' as DicomTagPath);
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('not found');
+        if (!result.ok) expect(result.error.message).toMatch(/not found/);
     });
 
     it('returns error for out-of-range sequence index', () => {
         const result = ds.getElementAtPath('(0008,1115)[99].(0020,000E)' as DicomTagPath);
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('no item at index');
+        if (!result.ok) expect(result.error.message).toMatch(/no item at index/);
     });
 
     it('returns error when intermediate tag is not a sequence', () => {
         const result = ds.getElementAtPath('(0010,0010)[0].(0010,0020)' as DicomTagPath);
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('not a sequence');
+        if (!result.ok) expect(result.error.message).toMatch(/not a sequence/);
     });
 
     it('uses index 0 by default when no index specified on intermediate segment', () => {
@@ -665,7 +665,7 @@ describe('DicomDataset edge cases', () => {
         if (!r.ok) return;
         const result = r.value.getElementAtPath('(0008,1115)[0].(0020,000E)' as DicomTagPath);
         expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error.message).toContain('no item');
+        if (!result.ok) expect(result.error.message).toMatch(/no item/);
     });
 
     it('handles null sequence item in wildcard traversal', () => {

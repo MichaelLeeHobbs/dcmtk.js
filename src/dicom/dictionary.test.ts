@@ -140,6 +140,25 @@ describe('DICOM Dictionary', () => {
         });
     });
 
+    describe('dictionary integrity', () => {
+        it('name index covers all entries (buildNameIndex iterates every key)', () => {
+            // lookupTagByName triggers buildNameIndex which iterates all dictionary entries
+            // This ensures every entry is visited, covering the Object.keys iteration path
+            const result = lookupTagByName('PatientName');
+            expect(result).toBeDefined();
+            expect(result?.tag).toBe('00100010');
+        });
+
+        it('lookupTagByKeyword returns valid DicomTag for known keywords', () => {
+            // This exercises the createDicomTag path inside lookupTagByKeyword
+            const tag = lookupTagByKeyword('PatientName');
+            expect(tag).toBe('(0010,0010)');
+
+            const tag2 = lookupTagByKeyword('PixelData');
+            expect(tag2).toBe('(7FE0,0010)');
+        });
+    });
+
     describe('DictionaryEntry type', () => {
         it('entries have the expected shape', () => {
             const entry = lookupTag('00100010');

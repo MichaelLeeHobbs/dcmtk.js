@@ -22,8 +22,8 @@ const quotedString = fc
 
 /** Generates a bare (unquoted) numeric value — the kind dcm2json emits incorrectly. */
 const bareNumber = fc.oneof(
-    fc.integer({ min: -9999, max: 9999 }).map(String),
-    fc.double({ min: -999.99, max: 999.99, noNaN: true, noDefaultInfinity: true }).map(n => n.toFixed(2))
+    fc.integer({ min: -2147483648, max: 2147483647 }).map(String),
+    fc.double({ min: -100000, max: 100000, noNaN: true, noDefaultInfinity: true }).map(n => n.toFixed(2))
 );
 
 /** Generates a "Value" array with bare numbers (the malformed case). */
@@ -48,7 +48,7 @@ describe('repairJson fuzz tests', () => {
             fc.property(fc.string(), input => {
                 expect(() => repairJson(input)).not.toThrow();
             }),
-            { numRuns: 1000 }
+            { numRuns: 200 }
         );
     });
 
@@ -57,7 +57,7 @@ describe('repairJson fuzz tests', () => {
             fc.property(fc.string(), input => {
                 expect(() => repairJson(input)).not.toThrow();
             }),
-            { numRuns: 500 }
+            { numRuns: 200 }
         );
     });
 
@@ -81,7 +81,7 @@ describe('repairJson fuzz tests', () => {
                 // The repaired output should be valid JSON
                 expect(() => JSON.parse(repaired) as unknown).not.toThrow();
             }),
-            { numRuns: 300 }
+            { numRuns: 1000 }
         );
     });
 
@@ -93,13 +93,13 @@ describe('repairJson fuzz tests', () => {
                 const twice = repairJson(once);
                 expect(twice).toBe(once);
             }),
-            { numRuns: 200 }
+            { numRuns: 500 }
         );
     });
 
     it('quotes bare integers in Value arrays', () => {
         fc.assert(
-            fc.property(fc.integer({ min: -9999, max: 9999 }), num => {
+            fc.property(fc.integer({ min: -2147483648, max: 2147483647 }), num => {
                 const raw = `{"00000000": {"vr": "DS", "Value": [${num}]}}`;
                 const repaired = repairJson(raw);
                 expect(repaired).toContain(`"${num}"`);
@@ -111,7 +111,7 @@ describe('repairJson fuzz tests', () => {
 
     it('quotes bare decimals in Value arrays', () => {
         fc.assert(
-            fc.property(fc.double({ min: -999.99, max: 999.99, noNaN: true, noDefaultInfinity: true }), num => {
+            fc.property(fc.double({ min: -100000, max: 100000, noNaN: true, noDefaultInfinity: true }), num => {
                 const str = num.toFixed(3);
                 const raw = `{"00000000": {"vr": "DS", "Value": [${str}]}}`;
                 const repaired = repairJson(raw);

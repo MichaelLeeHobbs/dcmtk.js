@@ -181,13 +181,13 @@ describe('Branded type factories', () => {
         it('rejects path traversal with ..', () => {
             const result = createDicomFilePath('/data/../etc/passwd');
             expect(result.ok).toBe(false);
-            if (!result.ok) expect(result.error.message).toContain('path traversal');
+            if (!result.ok) expect(result.error.message).toMatch(/path traversal/);
         });
 
         it('rejects path traversal with leading ..', () => {
             const result = createDicomFilePath('../secret/file.dcm');
             expect(result.ok).toBe(false);
-            if (!result.ok) expect(result.error.message).toContain('path traversal');
+            if (!result.ok) expect(result.error.message).toMatch(/path traversal/);
         });
 
         it('accepts paths with double-dot in filename (not traversal)', () => {

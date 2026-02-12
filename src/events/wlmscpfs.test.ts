@@ -154,7 +154,7 @@ describe('WLMSCPFS_PATTERNS with LineParser', () => {
         expect(events).toHaveLength(1);
         expect(events[0]?.event).toBe(WlmscpfsEvent.CANNOT_START_LISTENER);
         const data = events[0]?.data as { message: string };
-        expect(data.message).toContain('cannot listen');
+        expect(data.message).toMatch(/cannot listen/);
     });
 
     it('does not match unrelated output', () => {

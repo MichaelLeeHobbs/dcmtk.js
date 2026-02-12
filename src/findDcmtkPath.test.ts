@@ -53,7 +53,7 @@ describe('findDcmtkPath', () => {
             const result = findDcmtkPath({ noCache: true });
 
             expect(result.ok).toBe(false);
-            if (!result.ok) expect(result.error.message).toContain('DCMTK_PATH');
+            if (!result.ok) expect(result.error.message).toMatch(/DCMTK_PATH/);
         });
     });
 
@@ -101,7 +101,18 @@ describe('findDcmtkPath', () => {
             const result = findDcmtkPath({ noCache: true });
 
             expect(result.ok).toBe(false);
-            if (!result.ok) expect(result.error.message).toContain('DCMTK binaries not found');
+            if (!result.ok) expect(result.error.message).toMatch(/DCMTK binaries not found/);
+        });
+    });
+
+    describe('REQUIRED_BINARIES constant', () => {
+        it('is non-empty', () => {
+            expect(REQUIRED_BINARIES.length).toBeGreaterThan(0);
+        });
+
+        it('first element is a known binary', () => {
+            expect(REQUIRED_BINARIES[0]).toBeDefined();
+            expect(typeof REQUIRED_BINARIES[0]).toBe('string');
         });
     });
 

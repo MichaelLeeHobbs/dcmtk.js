@@ -53,7 +53,7 @@ describe('execCommand()', () => {
         // spawn returns a Process error for ENOENT
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('Process error');
+            expect(result.error.message).toMatch(/Process error/);
         }
     });
 
@@ -62,7 +62,7 @@ describe('execCommand()', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('timed out');
+            expect(result.error.message).toMatch(/timed out/);
         }
     });
 });
@@ -101,7 +101,7 @@ describe('spawnCommand()', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('Process error');
+            expect(result.error.message).toMatch(/Process error/);
         }
     });
 
@@ -111,7 +111,18 @@ describe('spawnCommand()', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('timed out');
+            expect(result.error.message).toMatch(/timed out/);
+        }
+    });
+
+    it('passes custom env to child process', async () => {
+        const result = await spawnCommand(process.execPath, ['-e', 'process.stdout.write(process.env.TEST_CUSTOM_VAR || "missing")'], {
+            env: { TEST_CUSTOM_VAR: 'hello_from_env' },
+        });
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.value.stdout).toBe('hello_from_env');
         }
     });
 

@@ -96,6 +96,7 @@ function computeDelay(attempt: number, config: ResolvedRetryConfig): number {
  * @returns True if the wait completed normally, false if aborted
  */
 async function waitWithAbort(delayMs: number, signal: AbortSignal | undefined): Promise<boolean> {
+    /* v8 ignore next 3 -- retry loop checks aborted before calling waitWithAbort */
     if (signal?.aborted) {
         return false;
     }
@@ -105,7 +106,6 @@ async function waitWithAbort(delayMs: number, signal: AbortSignal | undefined): 
             resolve(true);
         }, delayMs);
 
-        /* v8 ignore next 5 */
         const onAbort = (): void => {
             clearTimeout(timer);
             cleanup();

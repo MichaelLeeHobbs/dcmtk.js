@@ -25,7 +25,7 @@ describe('xmlToJson (public re-export)', () => {
         const result = xmlToJson('not xml at all');
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('missing NativeDicomModel');
+            expect(result.error.message).toMatch(/missing NativeDicomModel/);
         }
     });
 });

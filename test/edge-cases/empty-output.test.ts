@@ -80,7 +80,7 @@ describe('dcm2json edge case outputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('failed');
+            expect(result.error.message).toMatch(/failed/i);
         }
     });
 
@@ -102,7 +102,7 @@ describe('dcm2json edge case outputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('failed to parse output');
+            expect(result.error.message).toMatch(/failed to parse output/i);
         }
     });
 
@@ -179,7 +179,7 @@ describe('dcm2json edge case outputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('permission denied');
+            expect(result.error.message).toMatch(/permission denied/i);
         }
     });
 });
@@ -214,7 +214,7 @@ describe('dcm2xml edge case outputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('dcm2xml failed');
+            expect(result.error.message).toMatch(/dcm2xml failed/i);
         }
     });
 
@@ -291,7 +291,7 @@ describe('dcm2xml edge case outputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('no such file or directory');
+            expect(result.error.message).toMatch(/no such file or directory/i);
         }
     });
 });
@@ -325,7 +325,7 @@ describe('dcmdump edge case outputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('dcmdump failed');
+            expect(result.error.message).toMatch(/dcmdump failed/i);
         }
     });
 
@@ -369,7 +369,7 @@ describe('dcmdump edge case outputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('access denied');
+            expect(result.error.message).toMatch(/access denied/i);
         }
     });
 });
@@ -403,7 +403,7 @@ describe('echoscu edge case outputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('echoscu failed');
+            expect(result.error.message).toMatch(/echoscu failed/i);
         }
     });
 
@@ -432,7 +432,7 @@ describe('echoscu edge case outputs', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error.message).toContain('connection refused');
+            expect(result.error.message).toMatch(/connection refused/i);
         }
     });
 });

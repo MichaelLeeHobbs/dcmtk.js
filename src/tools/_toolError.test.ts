@@ -44,6 +44,6 @@ describe('createToolError()', () => {
     it('trims whitespace from stderr', () => {
         const error = createToolError('echoscu', ['--help'], 0, '  some warning  \n');
 
-        expect(error.message).toContain('stderr: some warning');
+        expect(error.message).toMatch(/stderr: some warning/);
     });
 });

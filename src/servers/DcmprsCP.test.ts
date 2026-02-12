@@ -27,7 +27,7 @@ describe('DcmprsCP', () => {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('invalid options');
+                expect(result.error.message).toMatch(/invalid options/i);
             }
         });
 
@@ -47,7 +47,7 @@ describe('DcmprsCP', () => {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('invalid options');
+                expect(result.error.message).toMatch(/invalid options/i);
             }
         });
 

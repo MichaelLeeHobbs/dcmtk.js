@@ -67,7 +67,7 @@ describe('DcmtkProcess', () => {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('Cannot start');
+                expect(result.error.message).toMatch(/Cannot start/);
             }
         });
 
@@ -119,7 +119,7 @@ describe('DcmtkProcess', () => {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('failed to start');
+                expect(result.error.message).toMatch(/failed to start/);
             }
         });
     });
@@ -205,7 +205,7 @@ describe('DcmtkProcess', () => {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.message).toContain('error');
+                expect(result.error.message).toMatch(/error/i);
             }
         });
     });

@@ -43,7 +43,7 @@ describe('lineParser fuzz tests', () => {
             fc.property(fc.string(), line => {
                 expect(() => parser.feed(line)).not.toThrow();
             }),
-            { numRuns: 1000 }
+            { numRuns: 200 }
         );
     });
 
@@ -55,7 +55,7 @@ describe('lineParser fuzz tests', () => {
             fc.property(fc.string(), line => {
                 expect(() => parser.feed(line)).not.toThrow();
             }),
-            { numRuns: 500 }
+            { numRuns: 200 }
         );
     });
 
@@ -95,7 +95,7 @@ describe('lineParser fuzz tests', () => {
                     expect(matches.length).toBe(expectedCount);
                 }
             ),
-            { numRuns: 200 }
+            { numRuns: 500 }
         );
     });
 
@@ -141,7 +141,7 @@ describe('lineParser fuzz tests', () => {
                 expect(matches.length).toBe(1);
                 expect(matches[0]).toBe('FIRST');
             }),
-            { numRuns: 100 }
+            { numRuns: 300 }
         );
     });
 
@@ -175,7 +175,7 @@ describe('lineParser fuzz tests', () => {
                 // Should have triggered a blockTimeout due to maxLines
                 expect(timeoutEvents.length).toBeGreaterThanOrEqual(1);
             }),
-            { numRuns: 50 }
+            { numRuns: 200 }
         );
     });
 });

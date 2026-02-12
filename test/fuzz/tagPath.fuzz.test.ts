@@ -27,7 +27,7 @@ const dicomTag = fc.tuple(hexQuad, hexQuad).map(([g, e]) => `(${g},${e})`);
 /** Generates an optional array index like `[0]`, `[42]`, or empty. */
 const optionalIndex = fc.oneof(
     fc.constant(''),
-    fc.integer({ min: 0, max: 999 }).map(n => `[${n}]`)
+    fc.integer({ min: 0, max: 65535 }).map(n => `[${n}]`)
 );
 
 /** Generates a single path segment like `(0040,A730)[0]`. */
@@ -80,7 +80,7 @@ describe('tagPath fuzz tests', () => {
             fc.property(validTagPath, path => {
                 expect(() => tagPathToSegments(path as DicomTagPath)).not.toThrow();
             }),
-            { numRuns: 500 }
+            { numRuns: 200 }
         );
     });
 

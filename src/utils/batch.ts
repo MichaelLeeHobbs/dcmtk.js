@@ -156,7 +156,6 @@ async function batch<TItem, TResult>(
         inFlight.add(promise);
         promise.then(
             () => inFlight.delete(promise),
-            /* v8 ignore next */
             () => inFlight.delete(promise)
         );
 

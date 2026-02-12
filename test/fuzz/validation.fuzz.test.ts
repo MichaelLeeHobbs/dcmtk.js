@@ -87,7 +87,7 @@ describe('validation fuzz tests', () => {
                 fc.property(fc.string(), input => {
                     expect(() => createDicomTag(input)).not.toThrow();
                 }),
-                { numRuns: 500 }
+                { numRuns: 200 }
             );
         });
     });
@@ -114,7 +114,7 @@ describe('validation fuzz tests', () => {
                     const result = createAETitle(input);
                     expect(result.ok).toBe(false);
                 }),
-                { numRuns: 200 }
+                { numRuns: 500 }
             );
         });
 
@@ -123,7 +123,7 @@ describe('validation fuzz tests', () => {
                 fc.property(fc.string(), input => {
                     expect(() => createAETitle(input)).not.toThrow();
                 }),
-                { numRuns: 500 }
+                { numRuns: 200 }
             );
         });
     });
@@ -145,7 +145,7 @@ describe('validation fuzz tests', () => {
                     const result = createPort(input);
                     expect(result.ok).toBe(false);
                 }),
-                { numRuns: 200 }
+                { numRuns: 500 }
             );
         });
 
@@ -158,7 +158,7 @@ describe('validation fuzz tests', () => {
                         expect(result.ok).toBe(false);
                     }
                 ),
-                { numRuns: 200 }
+                { numRuns: 500 }
             );
         });
 
@@ -167,7 +167,7 @@ describe('validation fuzz tests', () => {
                 fc.property(fc.double({ noNaN: true }), input => {
                     expect(() => createPort(input)).not.toThrow();
                 }),
-                { numRuns: 500 }
+                { numRuns: 200 }
             );
         });
     });
@@ -216,7 +216,7 @@ describe('validation fuzz tests', () => {
                 fc.property(fc.string(), input => {
                     expect(() => createDicomTagPath(input)).not.toThrow();
                 }),
-                { numRuns: 500 }
+                { numRuns: 200 }
             );
         });
     });
