@@ -7,7 +7,7 @@ import { dcm2json } from '../../../src/tools/dcm2json';
 import { dcmtkAvailable, SAMPLES, getAvailablePort, createTempDir, removeTempDir, withServer, waitForEvent } from '../helpers';
 import type { StoredFileData } from '../../../src/events/dcmrecv';
 
-const CONFIG_FILE = resolve(__dirname, '../../../_configs/storescp.cfg');
+const CONFIG_FILE = resolve(__dirname, '../../../src/data/storescp.cfg');
 const CONFIG_PROFILE = 'Default';
 
 describe.skipIf(!dcmtkAvailable)('send/receive via Dcmrecv integration', () => {

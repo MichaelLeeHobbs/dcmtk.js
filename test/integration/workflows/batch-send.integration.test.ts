@@ -9,7 +9,7 @@ import { dcmtkAvailable, SAMPLES, getAvailablePort, createTempDir, removeTempDir
 import type { DcmtkProcess } from '../../../src/DcmtkProcess';
 import type { DicomJsonModel } from '../../../src/tools/dcm2json';
 
-const CONFIG_FILE = resolve(__dirname, '../../../_configs/storescp.cfg');
+const CONFIG_FILE = resolve(__dirname, '../../../src/data/storescp.cfg');
 const CONFIG_PROFILE = 'Default';
 
 /** Extracts SOP Instance UID from a DICOM JSON model. */
