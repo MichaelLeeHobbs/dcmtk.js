@@ -5,3 +5,4 @@ export { getAvailablePort } from './getAvailablePort';
 export { withServer } from './withServer';
 export { copyDicomToTemp } from './copyDicomToTemp';
 export { waitForEvent } from './waitForEvent';
+export { generateQRConfig } from './generateQRConfig';

@@ -237,12 +237,14 @@ class DcmQRSCP extends DcmtkProcess {
             }
         }
 
+        // dcmqrscp v3.7.0+ does not print a "listening on port" message even
+        // in verbose/debug mode, so we resolve on spawn (like StoreSCP) and
+        // rely on a short warmup delay in callers that need the socket ready.
         const config: DcmtkProcessConfig = {
             binary: binaryResult.value,
             args,
             startTimeoutMs: options.startTimeoutMs,
             drainTimeoutMs: options.drainTimeoutMs,
-            isStartedPredicate: line => /listening on port/i.test(line),
         };
 
         return ok(new DcmQRSCP(config, parser, options.signal));
