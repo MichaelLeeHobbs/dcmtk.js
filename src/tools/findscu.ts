@@ -47,6 +47,10 @@ interface FindscuOptions extends ToolBaseOptions {
     readonly queryModel?: QueryModelValue | undefined;
     /** DICOM attribute keys for the query (each becomes -k). */
     readonly keys?: readonly string[] | undefined;
+    /** Extract response datasets to individual DICOM files. */
+    readonly extract?: boolean | undefined;
+    /** Output directory for extracted response files (requires extract). */
+    readonly outputDirectory?: string | undefined;
 }
 
 /** Result of a successful C-FIND query. */
@@ -67,6 +71,8 @@ const FindscuOptionsSchema = z
         calledAETitle: z.string().min(1).max(16).optional(),
         queryModel: z.enum(['worklist', 'patient', 'study']).optional(),
         keys: z.array(z.string().min(1)).optional(),
+        extract: z.boolean().optional(),
+        outputDirectory: z.string().min(1).optional(),
     })
     .strict();
 
@@ -86,6 +92,14 @@ function buildArgs(options: FindscuOptions): string[] {
 
     if (options.queryModel !== undefined) {
         args.push(QUERY_MODEL_FLAGS[options.queryModel]);
+    }
+
+    if (options.extract === true) {
+        args.push('--extract');
+    }
+
+    if (options.outputDirectory !== undefined) {
+        args.push('--output-directory', options.outputDirectory);
     }
 
     if (options.keys !== undefined) {

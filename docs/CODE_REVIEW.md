@@ -632,10 +632,12 @@ events.~~
 
 ---
 
-### DX-10: No High-Level PACS API (MEDIUM)
+### ~~DX-10: No High-Level PACS API (MEDIUM)~~
 
-Common workflow "query PACS and retrieve studies" requires manually orchestrating `findscu` + `movescu`/`getscu` with manual result parsing. No convenience
-wrapper exists.
+~~Common workflow "query PACS and retrieve studies" requires manually orchestrating `findscu` + `movescu`/`getscu` with manual result parsing. No convenience
+wrapper exists.~~
+
+~~**Resolution:** Added `PacsClient` class in `src/pacs/` that encapsulates PACS connection config and provides `echo()`, `findStudies()`/`findSeries()`/`findImages()`/`findWorklist()`, `retrieveStudy()`/`retrieveSeries()`, and `store()` methods. Query results returned as `DicomDataset[]`. Supports C-GET (default) and C-MOVE retrieval modes.~~
 
 ---
 

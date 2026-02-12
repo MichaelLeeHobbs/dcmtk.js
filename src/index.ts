@@ -351,6 +351,31 @@ export { Wlmscpfs } from './servers/Wlmscpfs';
 export type { WlmscpfsOptions, WlmscpfsEventMap } from './servers/Wlmscpfs';
 
 // ---------------------------------------------------------------------------
+// High-level PACS client
+// ---------------------------------------------------------------------------
+
+export { PacsClient } from './pacs/PacsClient';
+export { QueryLevel, RetrieveMode } from './pacs/types';
+export type {
+    QueryLevelValue,
+    RetrieveModeValue,
+    PacsClientConfig,
+    PacsMethodOptions,
+    PacsEchoOptions,
+    PacsQueryOptions,
+    PacsRetrieveOptions,
+    PacsStoreOptions,
+    StudyFilter,
+    SeriesFilter,
+    ImageFilter,
+    WorklistFilter,
+    PacsEchoResult,
+    PacsStoreResult,
+    PacsRetrieveResult,
+    PacsQueryResult,
+} from './pacs/types';
+
+// ---------------------------------------------------------------------------
 // Utility functions
 // ---------------------------------------------------------------------------
 
