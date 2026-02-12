@@ -13,21 +13,35 @@ describe.skipIf(!dcmtkAvailable)('stl2dcm integration', () => {
     beforeAll(async () => {
         tempDir = await createTempDir('stl2dcm-');
 
-        // Create a minimal ASCII STL file with one triangle
-        const stlContent = [
-            'solid test',
-            'facet normal 0 0 1',
-            'outer loop',
-            'vertex 0 0 0',
-            'vertex 1 0 0',
-            'vertex 0 1 0',
-            'endloop',
-            'endfacet',
-            'endsolid test',
-        ].join('\n');
+        // Create a minimal binary STL file with one triangle.
+        // DCMTK 3.7.0 only accepts binary STL (rejects ASCII).
+        // Binary STL format: 80-byte header + 4-byte triangle count + triangles
+        // Each triangle: 12 floats (normal + 3 vertices) + 2-byte attribute
+        const header = Buffer.alloc(80, 0); // 80-byte header (all zeros)
+        const count = Buffer.alloc(4);
+        count.writeUInt32LE(1, 0); // 1 triangle
+        const triangle = Buffer.alloc(50);
+        // Normal (0, 0, 1)
+        triangle.writeFloatLE(0, 0);
+        triangle.writeFloatLE(0, 4);
+        triangle.writeFloatLE(1, 8);
+        // Vertex 1 (0, 0, 0)
+        triangle.writeFloatLE(0, 12);
+        triangle.writeFloatLE(0, 16);
+        triangle.writeFloatLE(0, 20);
+        // Vertex 2 (1, 0, 0)
+        triangle.writeFloatLE(1, 24);
+        triangle.writeFloatLE(0, 28);
+        triangle.writeFloatLE(0, 32);
+        // Vertex 3 (0, 1, 0)
+        triangle.writeFloatLE(0, 36);
+        triangle.writeFloatLE(1, 40);
+        triangle.writeFloatLE(0, 44);
+        // Attribute byte count (0)
+        triangle.writeUInt16LE(0, 48);
 
         stlPath = join(tempDir, 'test.stl');
-        await writeFile(stlPath, stlContent);
+        await writeFile(stlPath, Buffer.concat([header, count, triangle]));
     });
 
     afterAll(async () => {

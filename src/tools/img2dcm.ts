@@ -27,7 +27,7 @@ type Img2dcmInputFormatValue = (typeof Img2dcmInputFormat)[keyof typeof Img2dcmI
 
 /** Options for {@link img2dcm}. */
 interface Img2dcmOptions extends ToolBaseOptions {
-    /** Input image format. Maps to `-i jp` or `-i bmp`. */
+    /** Input image format. Maps to `-i JPEG` or `-i BMP`. */
     readonly inputFormat?: Img2dcmInputFormatValue | undefined;
     /** Path to a DICOM dataset file to copy attributes from. Maps to `-df path`. */
     readonly datasetFrom?: string | undefined;
@@ -49,10 +49,10 @@ const Img2dcmOptionsSchema = z
     .strict()
     .optional();
 
-/** Maps input format values to their CLI abbreviation. */
+/** Maps input format values to the CLI flag expected by dcmtk 3.7.0+. */
 const FORMAT_FLAG_MAP: Record<Img2dcmInputFormatValue, string> = {
-    jpeg: 'jp',
-    bmp: 'bmp',
+    jpeg: 'JPEG',
+    bmp: 'BMP',
 };
 
 /**
