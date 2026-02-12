@@ -26,6 +26,12 @@ interface DcmmkdirOptions extends ToolBaseOptions {
     readonly filesetId?: string | undefined;
     /** Append to existing DICOMDIR. Maps to +A flag. Defaults to false. */
     readonly append?: boolean | undefined;
+    /** Root directory for referenced DICOM files. Maps to +id flag. */
+    readonly inputDirectory?: string | undefined;
+    /** Map filenames to DICOM format (uppercase, strip trailing period). Maps to +m flag. */
+    readonly mapFilenames?: boolean | undefined;
+    /** Invent missing DICOMDIR type 1 attributes. Maps to +I flag. */
+    readonly inventAttributes?: boolean | undefined;
 }
 
 /** Result of a successful dcmmkdir operation. */
@@ -42,6 +48,9 @@ const DcmmkdirOptionsSchema = z
         outputFile: z.string().min(1).optional(),
         filesetId: z.string().min(1).optional(),
         append: z.boolean().optional(),
+        inputDirectory: z.string().min(1).optional(),
+        mapFilenames: z.boolean().optional(),
+        inventAttributes: z.boolean().optional(),
     })
     .strict();
 
@@ -57,6 +66,18 @@ function buildArgs(options: DcmmkdirOptions): string[] {
 
     if (options.filesetId !== undefined) {
         args.push('+F', options.filesetId);
+    }
+
+    if (options.inputDirectory !== undefined) {
+        args.push('+id', options.inputDirectory);
+    }
+
+    if (options.mapFilenames === true) {
+        args.push('+m');
+    }
+
+    if (options.inventAttributes === true) {
+        args.push('+I');
     }
 
     if (options.append === true) {
