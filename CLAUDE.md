@@ -46,7 +46,7 @@ All code **shall** comply with `docs/TypeScript Coding Standard for Mission-Crit
 - **Branded types** (Rule 7.3) — domain primitives like `DicomTag`, `AETitle`, not raw strings
 - **Immutability** (Rule 7.1) — `readonly` by default, explicit mutations via ChangeSet
 - **Mandatory timeouts** (Rule 4.2) — all async operations have configurable timeouts
-- **95% coverage** (Rule 9.1) — enforced by vitest config; currently at 99.42%
+- **95% coverage** (Rule 9.1) — enforced by vitest config (branches threshold: 94%); currently at 99% statements
 - **Exhaustive switches** (Rule 8.3) — `default: assertUnreachable(x)` in all switch statements
 - **Functions <= 40 lines** (Rule 8.4) — warn, with skip for blank lines and comments
 - **TSDoc on all public APIs** (Rule 10.1)
@@ -83,6 +83,13 @@ All code **shall** comply with `docs/TypeScript Coding Standard for Mission-Crit
 - `DcmprsCP` — Print Management SCP (dcmprscp)
 - `Dcmpsrcv` — Viewer network receiver (dcmpsrcv)
 
+### High-Level PACS Client (`src/pacs/`)
+
+- `PacsClient` — Connection-config-once client with `echo()`, `findStudies()`/`findSeries()`/`findImages()`/`findWorklist()`, `find()`, `retrieveStudy()`/`retrieveSeries()`, `store()`
+- `types.ts` — `PacsClientConfig`, filter types (`StudyFilter`, `SeriesFilter`, `ImageFilter`, `WorklistFilter`), result types, `QueryLevel`/`RetrieveMode` const objects
+- `queryKeys.ts` — Maps filter objects to findscu `-k` arguments with return key sets per query level
+- `parseResults.ts` — Temp dir management, batch dcm2json parsing of findscu `--extract` output into `DicomDataset[]`
+
 ### Event Definitions (`src/events/`)
 
 - Typed event patterns for each server: `dcmrecv.ts` (10), `storescp.ts` (12), `dcmprscp.ts` (7), `dcmpsrcv.ts` (12)
@@ -117,7 +124,7 @@ All code **shall** comply with `docs/TypeScript Coding Standard for Mission-Crit
 
 - **Colocated unit tests** in `src/` (e.g., `src/types.test.ts` next to `src/types.ts`)
 - **Type tests** in `test/` (type-level assertions for public API)
-- 1056 tests across 77 files, all passing
+- 929 unit/fuzz/edge-case tests across 48 files, plus 43 integration test files (run separately via `pnpm run test:integration`)
 - Test files excluded from build via `tsconfig.build.json`
 - Only `dist/` ships in the npm package
 
