@@ -97,25 +97,32 @@ Remote SCU ──TCP──► DicomReceiver (:4242)
 
 ### Options
 
-| Option                | Type          | Default     | Description                                 |
-| --------------------- | ------------- | ----------- | ------------------------------------------- |
-| `port`                | `number`      | —           | **Required.** External listening port       |
-| `storageDir`          | `string`      | —           | **Required.** Root dir for association dirs |
-| `aeTitle`             | `string`      | `'DCMRECV'` | AE Title for workers                        |
-| `minPoolSize`         | `number`      | `2`         | Minimum idle workers to maintain            |
-| `maxPoolSize`         | `number`      | `10`        | Maximum total workers                       |
-| `connectionTimeoutMs` | `number`      | `10000`     | Timeout waiting for idle worker             |
-| `configFile`          | `string`      | —           | Config file passed to dcmrecv workers       |
-| `configProfile`       | `string`      | —           | Config profile name                         |
-| `signal`              | `AbortSignal` | —           | External cancellation                       |
+| Option                | Type          | Default     | Description                                                                    |
+| --------------------- | ------------- | ----------- | ------------------------------------------------------------------------------ |
+| `port`                | `number`      | —           | **Required.** External listening port (0 = no TCP proxy, use `handleSocket()`) |
+| `storageDir`          | `string`      | —           | **Required.** Root dir for association dirs                                    |
+| `aeTitle`             | `string`      | `'DCMRECV'` | AE Title for workers                                                           |
+| `minPoolSize`         | `number`      | `2`         | Minimum idle workers to maintain                                               |
+| `maxPoolSize`         | `number`      | `10`        | Maximum total workers                                                          |
+| `connectionTimeoutMs` | `number`      | `10000`     | Timeout waiting for idle worker                                                |
+| `configFile`          | `string`      | —           | Config file passed to dcmrecv workers                                          |
+| `configProfile`       | `string`      | —           | Config profile name                                                            |
+| `acseTimeout`         | `number`      | —           | ACSE timeout in seconds (passed to workers)                                    |
+| `dimseTimeout`        | `number`      | —           | DIMSE timeout in seconds (passed to workers)                                   |
+| `maxPdu`              | `number`      | —           | Maximum PDU receive size (4096–131072)                                         |
+| `signal`              | `AbortSignal` | —           | External cancellation                                                          |
 
 ### Events
 
-| Event                  | Data                                                                                                                                       | Description                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `FILE_RECEIVED`        | `{ filePath, associationId, associationDir, callingAE, calledAE, source, instance }`                                                       | File moved to association dir; `instance` is a parsed `DicomInstance` |
-| `ASSOCIATION_COMPLETE` | `{ associationId, associationDir, callingAE, calledAE, source, files, durationMs, endReason, totalBytes, bytesPerSecond, startAt, endAt }` | Association ended; includes transfer stats                            |
-| `error`                | `{ error, filePath?, associationId?, associationDir?, callingAE?, calledAE?, source? }`                                                    | Error with optional file/association context                          |
+| Event                  | Data                                                                                                                                               | Description                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `FILE_RECEIVED`        | `{ filePath, associationId, associationDir, callingAE, calledAE, source, instance }`                                                               | File moved to association dir; `instance` is a parsed `DicomInstance` |
+| `ASSOCIATION_COMPLETE` | `{ associationId, associationDir, callingAE, calledAE, source, files, durationMs, endReason, totalBytes, bytesPerSecond, startAt, endAt, output }` | Association ended; includes transfer stats and captured output        |
+| `ASSOCIATION_RECEIVED` | `{ associationId, callingAE, calledAE, source }`                                                                                                   | New association received by a worker                                  |
+| `C_STORE_REQUEST`      | `{ associationId, raw }`                                                                                                                           | C-STORE request received (per-file progress)                          |
+| `ECHO_REQUEST`         | `{ associationId }`                                                                                                                                | C-ECHO request received                                               |
+| `REFUSING_ASSOCIATION` | `{ reason }`                                                                                                                                       | Worker refused an association                                         |
+| `error`                | `{ error, filePath?, associationId?, associationDir?, callingAE?, calledAE?, source? }`                                                            | Error with optional file/association context                          |
 
 ### Worker Lifecycle
 
@@ -146,6 +153,8 @@ const result = DicomReceiver.create({
     storageDir: '/data/received',
     minPoolSize: 2,
     maxPoolSize: 8,
+    acseTimeout: 30,
+    maxPdu: 65536,
 });
 if (!result.ok) {
     console.error(result.error.message);
@@ -160,11 +169,38 @@ receiver.onFileReceived(data => {
 receiver.onAssociationComplete(data => {
     const mbPerSec = data.bytesPerSecond > 0 ? (data.bytesPerSecond / 1_048_576).toFixed(1) : '0';
     console.log(`Done: ${data.files.length} files, ${data.totalBytes} bytes, ${mbPerSec} MB/s`);
+    console.log(`Output lines: ${data.output.length}`);
+});
+
+receiver.onAssociationReceived(data => {
+    console.log(`Association from ${data.callingAE} (${data.source})`);
 });
 
 await receiver.start();
 // ... connections are automatically load-balanced across workers
 await receiver.stop();
+```
+
+#### External Socket Mode (`handleSocket`)
+
+When managing your own TCP listener (e.g., a protocol router), use `handleSocket()` to route sockets directly:
+
+```typescript
+const result = DicomReceiver.create({
+    port: 0, // no built-in TCP proxy
+    storageDir: '/data/received',
+});
+if (!result.ok) return;
+const receiver = result.value;
+
+await receiver.start();
+
+// Route sockets from your own listener
+myServer.on('connection', socket => {
+    if (isDicomConnection(socket)) {
+        receiver.handleSocket(socket);
+    }
+});
 ```
 
 ---

@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { DicomReceiver } from './DicomReceiver';
-import type { ReceiverFileData, ReceiverAssociationData, ReceiverErrorData } from './DicomReceiver';
+import type {
+    ReceiverFileData,
+    ReceiverAssociationData,
+    ReceiverErrorData,
+    PoolAssociationReceivedData,
+    PoolCStoreRequestData,
+    PoolEchoRequestData,
+    PoolRefusingAssociationData,
+} from './DicomReceiver';
+import { Dcmrecv } from './Dcmrecv';
 
 // ---------------------------------------------------------------------------
 // Mock Dcmrecv — a fake that emits events like the real one
@@ -39,6 +48,10 @@ class FakeDcmrecv extends EventEmitter {
 
     onAssociationComplete(listener: (data: unknown) => void): this {
         return this.on('ASSOCIATION_COMPLETE', listener);
+    }
+
+    onEvent(event: string, listener: (...args: unknown[]) => void): this {
+        return this.on(event, listener);
     }
 }
 
@@ -174,10 +187,9 @@ describe('DicomReceiver', () => {
             expect(result.ok).toBe(true);
         });
 
-        it('rejects port 0', () => {
+        it('accepts port 0 for handleSocket-only mode', () => {
             const result = DicomReceiver.create({ port: 0, storageDir: '/data' });
-            expect(result.ok).toBe(false);
-            if (!result.ok) expect(result.error.message).toMatch(/invalid options/i);
+            expect(result.ok).toBe(true);
         });
 
         it('rejects port > 65535', () => {
@@ -622,6 +634,452 @@ describe('DicomReceiver', () => {
             expect(assocEvents[0]?.endAt).toBeTypeOf('number');
 
             await receiver.stop();
+        });
+    });
+    // -----------------------------------------------------------------------
+    // Passthrough options (#3, #4)
+    // -----------------------------------------------------------------------
+
+    describe('passthrough options', () => {
+        it('passes acseTimeout, dimseTimeout, maxPdu to Dcmrecv.create()', async () => {
+            const result = DicomReceiver.create({
+                port: 4242,
+                storageDir: '/data',
+                minPoolSize: 1,
+                maxPoolSize: 1,
+                acseTimeout: 30,
+                dimseTimeout: 60,
+                maxPdu: 65536,
+            });
+            if (!result.ok) return;
+
+            await result.value.start();
+
+            // Verify the Dcmrecv.create mock was called with passthrough options
+            // eslint-disable-next-line @typescript-eslint/unbound-method
+            const mockCreate = vi.mocked(Dcmrecv.create);
+            const lastCall = mockCreate.mock.calls[mockCreate.mock.calls.length - 1]?.[0];
+            expect(lastCall).toMatchObject({
+                acseTimeout: 30,
+                dimseTimeout: 60,
+                maxPdu: 65536,
+            });
+
+            await result.value.stop();
+        });
+
+        it('accepts valid options in create()', () => {
+            const result = DicomReceiver.create({
+                port: 4242,
+                storageDir: '/data',
+                acseTimeout: 30,
+                dimseTimeout: 60,
+                maxPdu: 65536,
+            });
+            expect(result.ok).toBe(true);
+        });
+
+        it('rejects negative acseTimeout', () => {
+            const result = DicomReceiver.create({
+                port: 4242,
+                storageDir: '/data',
+                acseTimeout: -1,
+            });
+            expect(result.ok).toBe(false);
+        });
+
+        it('rejects maxPdu below 4096', () => {
+            const result = DicomReceiver.create({
+                port: 4242,
+                storageDir: '/data',
+                maxPdu: 1024,
+            });
+            expect(result.ok).toBe(false);
+        });
+
+        it('rejects maxPdu above 131072', () => {
+            const result = DicomReceiver.create({
+                port: 4242,
+                storageDir: '/data',
+                maxPdu: 200000,
+            });
+            expect(result.ok).toBe(false);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // Event bubbling (#2)
+    // -----------------------------------------------------------------------
+
+    describe('event bubbling', () => {
+        it('emits ASSOCIATION_RECEIVED when worker receives association', async () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            const events: PoolAssociationReceivedData[] = [];
+            receiver.onAssociationReceived(data => events.push(data));
+
+            await receiver.start();
+            const worker = createdFakes[0];
+            if (worker === undefined) return;
+
+            // Make worker busy first
+            if (connectionHandler !== undefined) {
+                connectionHandler(createMockSocket());
+                await delay(50);
+            }
+
+            worker.emit('ASSOCIATION_RECEIVED', {
+                source: '192.168.1.1:5000',
+                callingAE: 'SCU1',
+                calledAE: 'DCMRECV',
+            });
+
+            expect(events).toHaveLength(1);
+            expect(events[0]).toMatchObject({
+                associationId: 'assoc-1',
+                callingAE: 'SCU1',
+                calledAE: 'DCMRECV',
+                source: '192.168.1.1:5000',
+            });
+
+            await receiver.stop();
+        });
+
+        it('emits C_STORE_REQUEST when worker receives store request', async () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            const events: PoolCStoreRequestData[] = [];
+            receiver.onCStoreRequest(data => events.push(data));
+
+            await receiver.start();
+            const worker = createdFakes[0];
+            if (worker === undefined) return;
+
+            if (connectionHandler !== undefined) {
+                connectionHandler(createMockSocket());
+                await delay(50);
+            }
+
+            worker.emit('C_STORE_REQUEST', { raw: 'Received Store Request' });
+
+            expect(events).toHaveLength(1);
+            expect(events[0]).toMatchObject({
+                associationId: 'assoc-1',
+                raw: 'Received Store Request',
+            });
+
+            await receiver.stop();
+        });
+
+        it('emits ECHO_REQUEST when worker receives echo', async () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            const events: PoolEchoRequestData[] = [];
+            receiver.onEchoRequest(data => events.push(data));
+
+            await receiver.start();
+            const worker = createdFakes[0];
+            if (worker === undefined) return;
+
+            if (connectionHandler !== undefined) {
+                connectionHandler(createMockSocket());
+                await delay(50);
+            }
+
+            worker.emit('ECHO_REQUEST');
+
+            expect(events).toHaveLength(1);
+            expect(events[0]?.associationId).toBe('assoc-1');
+
+            await receiver.stop();
+        });
+
+        it('emits REFUSING_ASSOCIATION when worker refuses', async () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            const events: PoolRefusingAssociationData[] = [];
+            receiver.onRefusingAssociation(data => events.push(data));
+
+            await receiver.start();
+            const worker = createdFakes[0];
+            if (worker === undefined) return;
+
+            worker.emit('REFUSING_ASSOCIATION', { reason: 'no valid context' });
+
+            expect(events).toHaveLength(1);
+            expect(events[0]?.reason).toBe('no valid context');
+
+            await receiver.stop();
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // Output accumulation (#6)
+    // -----------------------------------------------------------------------
+
+    describe('output accumulation', () => {
+        it('includes output lines in ASSOCIATION_COMPLETE', async () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            const assocEvents: ReceiverAssociationData[] = [];
+            receiver.onAssociationComplete(data => assocEvents.push(data));
+
+            await receiver.start();
+            const worker = createdFakes[0];
+            if (worker === undefined) return;
+
+            if (connectionHandler !== undefined) {
+                connectionHandler(createMockSocket());
+                await delay(50);
+            }
+
+            // Simulate output lines from the worker
+            worker.emit('line', { source: 'stdout', text: 'Association Received' });
+            worker.emit('line', { source: 'stderr', text: 'some debug info' });
+
+            worker.emit('ASSOCIATION_COMPLETE', {
+                associationId: 'assoc-internal-1',
+                callingAE: 'SCU1',
+                calledAE: 'DCMRECV',
+                source: '192.168.1.1:5000',
+                files: [],
+                durationMs: 100,
+                endReason: 'release',
+            });
+
+            await delay(50);
+
+            expect(assocEvents).toHaveLength(1);
+            expect(assocEvents[0]?.output).toEqual(['Association Received', 'some debug info']);
+
+            await receiver.stop();
+        });
+
+        it('bounds output lines at 500', async () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            const assocEvents: ReceiverAssociationData[] = [];
+            receiver.onAssociationComplete(data => assocEvents.push(data));
+
+            await receiver.start();
+            const worker = createdFakes[0];
+            if (worker === undefined) return;
+
+            if (connectionHandler !== undefined) {
+                connectionHandler(createMockSocket());
+                await delay(50);
+            }
+
+            // Emit 600 lines — should be capped at 500
+            for (let i = 0; i < 600; i++) {
+                worker.emit('line', { source: 'stdout', text: `line ${String(i)}` });
+            }
+
+            worker.emit('ASSOCIATION_COMPLETE', {
+                associationId: 'assoc-internal-1',
+                callingAE: 'SCU1',
+                calledAE: 'DCMRECV',
+                source: '192.168.1.1:5000',
+                files: [],
+                durationMs: 100,
+                endReason: 'release',
+            });
+
+            await delay(50);
+
+            expect(assocEvents[0]?.output).toHaveLength(500);
+            expect(assocEvents[0]?.output[0]).toBe('line 0');
+            expect(assocEvents[0]?.output[499]).toBe('line 499');
+
+            await receiver.stop();
+        });
+
+        it('does not capture lines when worker is idle', async () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            const assocEvents: ReceiverAssociationData[] = [];
+            receiver.onAssociationComplete(data => assocEvents.push(data));
+
+            await receiver.start();
+            const worker = createdFakes[0];
+            if (worker === undefined) return;
+
+            // Emit lines while idle — should not be captured
+            worker.emit('line', { source: 'stdout', text: 'idle chatter' });
+
+            // Now make worker busy
+            if (connectionHandler !== undefined) {
+                connectionHandler(createMockSocket());
+                await delay(50);
+            }
+
+            worker.emit('line', { source: 'stdout', text: 'busy line' });
+
+            worker.emit('ASSOCIATION_COMPLETE', {
+                associationId: 'assoc-internal-1',
+                callingAE: 'SCU1',
+                calledAE: 'DCMRECV',
+                source: '192.168.1.1:5000',
+                files: [],
+                durationMs: 100,
+                endReason: 'release',
+            });
+
+            await delay(50);
+
+            expect(assocEvents[0]?.output).toEqual(['busy line']);
+
+            await receiver.stop();
+        });
+
+        it('resets output between associations', async () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            const assocEvents: ReceiverAssociationData[] = [];
+            receiver.onAssociationComplete(data => assocEvents.push(data));
+
+            await receiver.start();
+            const worker = createdFakes[0];
+            if (worker === undefined) return;
+
+            // First association
+            if (connectionHandler !== undefined) {
+                connectionHandler(createMockSocket());
+                await delay(50);
+            }
+            worker.emit('line', { source: 'stdout', text: 'first assoc line' });
+            worker.emit('ASSOCIATION_COMPLETE', {
+                associationId: 'a1',
+                callingAE: 'SCU1',
+                calledAE: 'DCMRECV',
+                source: '192.168.1.1:5000',
+                files: [],
+                durationMs: 100,
+                endReason: 'release',
+            });
+            await delay(50);
+
+            // Second association
+            if (connectionHandler !== undefined) {
+                connectionHandler(createMockSocket());
+                await delay(50);
+            }
+            worker.emit('line', { source: 'stdout', text: 'second assoc line' });
+            worker.emit('ASSOCIATION_COMPLETE', {
+                associationId: 'a2',
+                callingAE: 'SCU2',
+                calledAE: 'DCMRECV',
+                source: '192.168.1.2:5000',
+                files: [],
+                durationMs: 200,
+                endReason: 'release',
+            });
+            await delay(50);
+
+            expect(assocEvents).toHaveLength(2);
+            expect(assocEvents[0]?.output).toEqual(['first assoc line']);
+            expect(assocEvents[1]?.output).toEqual(['second assoc line']);
+
+            await receiver.stop();
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // handleSocket() (#1)
+    // -----------------------------------------------------------------------
+
+    describe('handleSocket()', () => {
+        it('destroys socket with error when not started', () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data' });
+            if (!result.ok) return;
+
+            const socket = createMockSocket();
+            result.value.handleSocket(socket as unknown as import('node:net').Socket);
+            expect(socket.destroy).toHaveBeenCalled();
+            const callArg = vi.mocked(socket.destroy as (...args: unknown[]) => void).mock.calls[0]?.[0] as Error | undefined;
+            expect(callArg?.message).toContain('not started');
+        });
+
+        it('routes socket to worker when started', async () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 3 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            await receiver.start();
+
+            expect(receiver.poolStatus.idle).toBe(1);
+
+            const socket = createMockSocket();
+            receiver.handleSocket(socket as unknown as import('node:net').Socket);
+
+            await delay(50);
+
+            expect(receiver.poolStatus.busy).toBe(1);
+
+            await receiver.stop();
+        });
+
+        it('works with port 0 (no TCP proxy)', async () => {
+            const result = DicomReceiver.create({ port: 0, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            await receiver.start();
+
+            const socket = createMockSocket();
+            receiver.handleSocket(socket as unknown as import('node:net').Socket);
+
+            await delay(50);
+
+            expect(receiver.poolStatus.busy).toBe(1);
+
+            await receiver.stop();
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // New convenience method chaining
+    // -----------------------------------------------------------------------
+
+    describe('new convenience methods', () => {
+        it('onAssociationReceived returns this for chaining', () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data' });
+            if (!result.ok) return;
+            expect(result.value.onAssociationReceived(vi.fn())).toBe(result.value);
+        });
+
+        it('onCStoreRequest returns this for chaining', () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data' });
+            if (!result.ok) return;
+            expect(result.value.onCStoreRequest(vi.fn())).toBe(result.value);
+        });
+
+        it('onEchoRequest returns this for chaining', () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data' });
+            if (!result.ok) return;
+            expect(result.value.onEchoRequest(vi.fn())).toBe(result.value);
+        });
+
+        it('onRefusingAssociation returns this for chaining', () => {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data' });
+            if (!result.ok) return;
+            expect(result.value.onRefusingAssociation(vi.fn())).toBe(result.value);
         });
     });
 });

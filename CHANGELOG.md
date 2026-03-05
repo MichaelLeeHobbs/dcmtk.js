@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-03-05
+
+### Added
+
+- **`handleSocket(socket)`** on `DicomReceiver` — route external `net.Socket` connections directly to idle workers, enabling protocol routers and custom TCP listeners
+- **`port: 0` mode** — skip the built-in TCP proxy entirely when using `handleSocket()` exclusively
+- **Event bubbling** — 4 new events on `DicomReceiver`, bubbled from Dcmrecv workers:
+    - `ASSOCIATION_RECEIVED` — `{ associationId, callingAE, calledAE, source }`
+    - `C_STORE_REQUEST` — `{ associationId, raw }` (per-file progress tracking)
+    - `ECHO_REQUEST` — `{ associationId }` (monitoring)
+    - `REFUSING_ASSOCIATION` — `{ reason }`
+- **Passthrough options** on `DicomReceiver`: `acseTimeout`, `dimseTimeout`, `maxPdu` — forwarded to all Dcmrecv workers
+- **Output capture** — `ASSOCIATION_COMPLETE` events now include `output: readonly string[]` with captured worker stdout/stderr lines (bounded at 500 per association)
+- Convenience methods: `onAssociationReceived()`, `onCStoreRequest()`, `onEchoRequest()`, `onRefusingAssociation()`
+- 4 new exported types: `PoolAssociationReceivedData`, `PoolCStoreRequestData`, `PoolEchoRequestData`, `PoolRefusingAssociationData`
+- 31 new unit tests for DicomReceiver (1813 total across 100 test files)
+
+### Changed
+
+- `DicomReceiverOptions.port` now accepts `0` (previously required `>= 1`)
+- Extracted `createDcmrecv()` helper to keep `spawnWorker()` within 40-line limit
+
 ## [0.4.0] - 2026-03-02
 
 ### Added

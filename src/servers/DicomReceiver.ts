@@ -32,6 +32,7 @@ const DEFAULT_MAX_POOL_SIZE = 10;
 const DEFAULT_CONNECTION_TIMEOUT_MS = 10_000;
 const CONNECTION_RETRY_INTERVAL_MS = 500;
 const MAX_CONNECTION_RETRIES = 200;
+const MAX_OUTPUT_LINES_PER_ASSOCIATION = 500;
 
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -72,6 +73,32 @@ interface ReceiverAssociationData {
     readonly bytesPerSecond: number;
     readonly startAt: number;
     readonly endAt: number;
+    /** Captured stdout/stderr lines from the worker during this association. */
+    readonly output: readonly string[];
+}
+
+/** Data emitted with ASSOCIATION_RECEIVED events (bubbled from worker). */
+interface PoolAssociationReceivedData {
+    readonly associationId: string;
+    readonly callingAE: string;
+    readonly calledAE: string;
+    readonly source: string;
+}
+
+/** Data emitted with C_STORE_REQUEST events (bubbled from worker). */
+interface PoolCStoreRequestData {
+    readonly associationId: string;
+    readonly raw: string;
+}
+
+/** Data emitted with ECHO_REQUEST events (bubbled from worker). */
+interface PoolEchoRequestData {
+    readonly associationId: string;
+}
+
+/** Data emitted with REFUSING_ASSOCIATION events (bubbled from worker). */
+interface PoolRefusingAssociationData {
+    readonly reason: string;
 }
 
 /** Data emitted with error events. */
@@ -89,6 +116,10 @@ interface ReceiverErrorData {
 interface DicomReceiverEventMap {
     FILE_RECEIVED: [ReceiverFileData];
     ASSOCIATION_COMPLETE: [ReceiverAssociationData];
+    ASSOCIATION_RECEIVED: [PoolAssociationReceivedData];
+    C_STORE_REQUEST: [PoolCStoreRequestData];
+    ECHO_REQUEST: [PoolEchoRequestData];
+    REFUSING_ASSOCIATION: [PoolRefusingAssociationData];
     error: [ReceiverErrorData];
 }
 
@@ -110,6 +141,12 @@ interface DicomReceiverOptions {
     readonly configFile?: string | undefined;
     /** Profile name within the configuration file. */
     readonly configProfile?: string | undefined;
+    /** ACSE timeout in seconds (passed through to Dcmrecv workers). */
+    readonly acseTimeout?: number | undefined;
+    /** DIMSE timeout in seconds (passed through to Dcmrecv workers). */
+    readonly dimseTimeout?: number | undefined;
+    /** Maximum PDU receive size (passed through to Dcmrecv workers). */
+    readonly maxPdu?: number | undefined;
     /** AbortSignal for external cancellation. */
     readonly signal?: AbortSignal | undefined;
 }
@@ -120,7 +157,7 @@ interface DicomReceiverOptions {
 
 const DicomReceiverOptionsSchema = z
     .object({
-        port: z.number().int().min(1).max(65535),
+        port: z.number().int().min(0).max(65535),
         storageDir: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in storageDir' }),
         aeTitle: z.string().min(1).max(16).refine(isValidAETitle, { message: 'AE Title contains invalid characters' }).optional(),
         minPoolSize: z.number().int().min(1).max(100).optional(),
@@ -128,6 +165,9 @@ const DicomReceiverOptionsSchema = z
         connectionTimeoutMs: z.number().int().positive().optional(),
         configFile: z.string().min(1).refine(isSafePath, { message: 'path traversal detected in configFile' }).optional(),
         configProfile: z.string().min(1).optional(),
+        acseTimeout: z.number().int().positive().optional(),
+        dimseTimeout: z.number().int().positive().optional(),
+        maxPdu: z.number().int().min(4096).max(131072).optional(),
         signal: z.instanceof(AbortSignal).optional(),
     })
     .strict()
@@ -150,6 +190,8 @@ interface WorkerInfo {
     files: string[];
     /** Byte sizes parallel to files[], for transfer stats. */
     fileSizes: number[];
+    /** Captured output lines during the current association. */
+    outputLines: string[];
     /** Timestamp when the TCP connection was routed to this worker. */
     startAt: number | undefined;
     remoteSocket: net.Socket | undefined;
@@ -333,6 +375,62 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
         return this.on('ASSOCIATION_COMPLETE', listener);
     }
 
+    /**
+     * Registers a listener for new associations (bubbled from workers).
+     *
+     * @param listener - Callback receiving association received data
+     * @returns this for chaining
+     */
+    onAssociationReceived(listener: (data: PoolAssociationReceivedData) => void): this {
+        return this.on('ASSOCIATION_RECEIVED', listener);
+    }
+
+    /**
+     * Registers a listener for C-STORE requests (bubbled from workers).
+     *
+     * @param listener - Callback receiving C-STORE request data
+     * @returns this for chaining
+     */
+    onCStoreRequest(listener: (data: PoolCStoreRequestData) => void): this {
+        return this.on('C_STORE_REQUEST', listener);
+    }
+
+    /**
+     * Registers a listener for C-ECHO requests (bubbled from workers).
+     *
+     * @param listener - Callback receiving echo request data
+     * @returns this for chaining
+     */
+    onEchoRequest(listener: (data: PoolEchoRequestData) => void): this {
+        return this.on('ECHO_REQUEST', listener);
+    }
+
+    /**
+     * Registers a listener for refused associations (bubbled from workers).
+     *
+     * @param listener - Callback receiving refusing association data
+     * @returns this for chaining
+     */
+    onRefusingAssociation(listener: (data: PoolRefusingAssociationData) => void): this {
+        return this.on('REFUSING_ASSOCIATION', listener);
+    }
+
+    /**
+     * Routes an external socket to an idle worker.
+     *
+     * The pool must be started via `start()` before calling this method.
+     * Use this when managing your own TCP listener (e.g., protocol router).
+     *
+     * @param socket - An incoming net.Socket to route to a worker
+     */
+    handleSocket(socket: net.Socket): void {
+        if (!this.started) {
+            socket.destroy(new Error('DicomReceiver: not started'));
+            return;
+        }
+        void this.handleConnection(socket);
+    }
+
     /** Current pool status. */
     get poolStatus(): PoolStatus {
         let idle = 0;
@@ -348,8 +446,11 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
     // TCP proxy
     // -----------------------------------------------------------------------
 
-    /** Starts the TCP proxy on the configured port. */
+    /** Starts the TCP proxy on the configured port. Skips if port is 0. */
     private startTcpProxy(): Promise<Result<void>> {
+        if (this.options.port === 0) {
+            return Promise.resolve(ok(undefined));
+        }
         return new Promise(resolve => {
             this.tcpServer = net.createServer(socket => {
                 void this.handleConnection(socket);
@@ -409,6 +510,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
         worker.associationDir = associationDir;
         worker.files = [];
         worker.fileSizes = [];
+        worker.outputLines = [];
         worker.startAt = Date.now();
 
         this.pipeConnection(worker, remoteSocket);
@@ -481,6 +583,20 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
         return ok(undefined);
     }
 
+    /** Creates a Dcmrecv instance with the pool's shared options. */
+    private createDcmrecv(port: number, tempDir: string): Result<Dcmrecv> {
+        return Dcmrecv.create({
+            port,
+            aeTitle: this.options.aeTitle ?? 'DCMRECV',
+            outputDirectory: tempDir,
+            configFile: this.options.configFile,
+            configProfile: this.options.configProfile,
+            acseTimeout: this.options.acseTimeout,
+            dimseTimeout: this.options.dimseTimeout,
+            maxPdu: this.options.maxPdu,
+        });
+    }
+
     /** Spawns a single Dcmrecv worker with an ephemeral port. */
     private async spawnWorker(): Promise<Result<WorkerInfo>> {
         const portResult = await allocatePort();
@@ -491,13 +607,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
         const mkdirResult = await ensureDirectory(tempDir);
         if (!mkdirResult.ok) return mkdirResult;
 
-        const createResult = Dcmrecv.create({
-            port,
-            aeTitle: this.options.aeTitle ?? 'DCMRECV',
-            outputDirectory: tempDir,
-            configFile: this.options.configFile,
-            configProfile: this.options.configProfile,
-        });
+        const createResult = this.createDcmrecv(port, tempDir);
         if (!createResult.ok) return createResult;
 
         const dcmrecv = createResult.value;
@@ -510,6 +620,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
             associationDir: undefined,
             files: [],
             fileSizes: [],
+            outputLines: [],
             startAt: undefined,
             remoteSocket: undefined,
             workerSocket: undefined,
@@ -581,10 +692,15 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
     // Worker event wiring
     // -----------------------------------------------------------------------
 
-    /** Wires FILE_RECEIVED and ASSOCIATION_COMPLETE events on a worker. */
+    /** Wires all events on a worker: file handling, association lifecycle, output capture. */
     private wireWorkerEvents(worker: WorkerInfo): void {
         this.wireFileReceived(worker);
         this.wireAssociationComplete(worker);
+        this.wireAssociationReceived(worker);
+        this.wireCStoreRequest(worker);
+        this.wireEchoRequest(worker);
+        this.wireRefusingAssociation(worker);
+        this.wireOutputCapture(worker);
     }
 
     /** Wires FILE_RECEIVED from dcmrecv worker to handleFileReceived. */
@@ -638,6 +754,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
             const assocId = worker.associationId ?? data.associationId;
             const assocDir = worker.associationDir ?? '';
             const files = [...worker.files];
+            const output = [...worker.outputLines];
 
             const endAt = Date.now();
             const startAt = worker.startAt ?? endAt;
@@ -658,6 +775,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
                 bytesPerSecond,
                 startAt,
                 endAt,
+                output,
             });
 
             worker.state = 'idle';
@@ -665,11 +783,61 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
             worker.associationDir = undefined;
             worker.files = [];
             worker.fileSizes = [];
+            worker.outputLines = [];
             worker.startAt = undefined;
             worker.remoteSocket = undefined;
             worker.workerSocket = undefined;
 
             void this.scaleDown();
+        });
+    }
+
+    /** Bubbles ASSOCIATION_RECEIVED from dcmrecv worker. */
+    private wireAssociationReceived(worker: WorkerInfo): void {
+        worker.dcmrecv.onEvent('ASSOCIATION_RECEIVED', (data: { callingAE: string; calledAE: string; source: string }) => {
+            this.emit('ASSOCIATION_RECEIVED', {
+                associationId: worker.associationId ?? '',
+                callingAE: data.callingAE,
+                calledAE: data.calledAE,
+                source: data.source,
+            });
+        });
+    }
+
+    /** Bubbles C_STORE_REQUEST from dcmrecv worker. */
+    private wireCStoreRequest(worker: WorkerInfo): void {
+        worker.dcmrecv.onEvent('C_STORE_REQUEST', (data: { raw: string }) => {
+            this.emit('C_STORE_REQUEST', {
+                associationId: worker.associationId ?? '',
+                raw: data.raw,
+            });
+        });
+    }
+
+    /** Bubbles ECHO_REQUEST from dcmrecv worker. */
+    private wireEchoRequest(worker: WorkerInfo): void {
+        worker.dcmrecv.onEvent('ECHO_REQUEST', () => {
+            this.emit('ECHO_REQUEST', {
+                associationId: worker.associationId ?? '',
+            });
+        });
+    }
+
+    /** Bubbles REFUSING_ASSOCIATION from dcmrecv worker. */
+    private wireRefusingAssociation(worker: WorkerInfo): void {
+        worker.dcmrecv.onEvent('REFUSING_ASSOCIATION', (data: { reason: string }) => {
+            this.emit('REFUSING_ASSOCIATION', {
+                reason: data.reason,
+            });
+        });
+    }
+
+    /** Captures worker output lines during busy associations. */
+    private wireOutputCapture(worker: WorkerInfo): void {
+        worker.dcmrecv.on('line', ({ text }: { text: string }) => {
+            if (worker.state === 'busy' && worker.outputLines.length < MAX_OUTPUT_LINES_PER_ASSOCIATION) {
+                worker.outputLines.push(text);
+            }
         });
     }
 
@@ -760,4 +928,15 @@ function delay(ms: number): Promise<void> {
 }
 
 export { DicomReceiver };
-export type { DicomReceiverOptions, DicomReceiverEventMap, ReceiverFileData, ReceiverAssociationData, ReceiverErrorData, PoolStatus };
+export type {
+    DicomReceiverOptions,
+    DicomReceiverEventMap,
+    ReceiverFileData,
+    ReceiverAssociationData,
+    ReceiverErrorData,
+    PoolStatus,
+    PoolAssociationReceivedData,
+    PoolCStoreRequestData,
+    PoolEchoRequestData,
+    PoolRefusingAssociationData,
+};

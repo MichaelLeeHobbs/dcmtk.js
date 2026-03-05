@@ -362,6 +362,10 @@ export type {
     ReceiverAssociationData,
     ReceiverErrorData,
     PoolStatus,
+    PoolAssociationReceivedData,
+    PoolCStoreRequestData,
+    PoolEchoRequestData,
+    PoolRefusingAssociationData,
 } from './servers/DicomReceiver';
 
 // ---------------------------------------------------------------------------

@@ -291,12 +291,18 @@ All servers extend `DcmtkProcess` (EventEmitter + Disposable) and support `Abort
 
 Pooled DICOM receiver managing multiple `Dcmrecv` workers behind a TCP proxy.
 
+Options include `port`, `storageDir`, `aeTitle`, pool sizing (`minPoolSize`/`maxPoolSize`), `connectionTimeoutMs`, `configFile`/`configProfile`, `acseTimeout`, `dimseTimeout`, `maxPdu`, and `signal`. Set `port: 0` for external socket mode (no TCP proxy).
+
+Events: `FILE_RECEIVED`, `ASSOCIATION_COMPLETE` (includes `output` lines), `ASSOCIATION_RECEIVED`, `C_STORE_REQUEST`, `ECHO_REQUEST`, `REFUSING_ASSOCIATION`, `error`.
+
 ```typescript
 const result = DicomReceiver.create({
     port: 4242,
     storageDir: '/data/received',
     minPoolSize: 2,
     maxPoolSize: 8,
+    acseTimeout: 30,
+    maxPdu: 65536,
 });
 if (!result.ok) {
     console.error(result.error.message);
@@ -305,17 +311,20 @@ if (!result.ok) {
 const receiver = result.value;
 
 receiver.onFileReceived(data => console.log(data.filePath, data.instance.patientName));
-receiver.onAssociationComplete(data => console.log(data.files, data.totalBytes, data.bytesPerSecond));
+receiver.onAssociationComplete(data => console.log(data.files, data.totalBytes, data.output.length));
+receiver.onAssociationReceived(data => console.log(data.callingAE, data.source));
+receiver.onCStoreRequest(data => console.log(data.associationId, data.raw));
 
 await receiver.start();
 // ... connections auto-routed to idle workers, files organized per-association
 await receiver.stop();
 
+// External socket mode: receiver.handleSocket(socket) routes a net.Socket to a worker
 // Pool monitoring
 receiver.poolStatus; // PoolStatus: { idle: number; busy: number; total: number }
 ```
 
-`PoolStatus` is exported as a named type.
+`PoolStatus`, `PoolAssociationReceivedData`, `PoolCStoreRequestData`, `PoolEchoRequestData`, `PoolRefusingAssociationData` are exported as named types.
 
 ### DicomSender
 
