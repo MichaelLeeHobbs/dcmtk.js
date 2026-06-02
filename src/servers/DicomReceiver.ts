@@ -1369,6 +1369,15 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
     /** Bubbles ASSOCIATION_RECEIVED from dcmrecv worker. */
     private wireAssociationReceived(worker: Worker): void {
         worker.dcmrecv.onEvent('ASSOCIATION_RECEIVED', (data: { callingAE: string; calledAE: string; source: string }) => {
+            // Suppress a late/duplicate ASSOCIATION_RECEIVED that dcmrecv's
+            // stdout can deliver after the worker already finalized its
+            // association. Bubbling it would make a consumer register an
+            // association that never receives a matching ASSOCIATION_FINALIZED
+            // (the worker is done), stranding it until any consumer-side reaper
+            // fires. `finalized` is reset by beginAssociation before a genuinely
+            // new association's RECEIVED arrives, so only strays are filtered.
+            if (worker.finalized) return;
+
             // Record the hand-off so cleanup knows a consumer engaged with this
             // association (and therefore owns its directory cleanup).
             worker.markAssociationReceived();

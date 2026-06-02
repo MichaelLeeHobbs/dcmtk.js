@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **DicomReceiver: late `ASSOCIATION_RECEIVED` re-registered an already-finalized association.** After the worker double-assignment race was fixed (0.16.0), an end-to-end soak under extreme concurrency (50 parallel single-file associations) left a small residual — ~1 in 1500 associations un-finalized from the consumer's view (realistic batched traffic was fully clean). dcmrecv's stdout can deliver a stray `ASSOCIATION_RECEIVED` for an association _after_ the worker has already finalized it and gone idle; the pool bubbled it, so a consumer registered an association that never got a matching `ASSOCIATION_FINALIZED`. Fixed by suppressing `ASSOCIATION_RECEIVED` when `worker.finalized` is set — the flag stays true between finalize and the next `beginAssociation` (which resets it before a genuinely new association's events arrive), so only strays are filtered. The event carries no payload, so suppression is non-destructive. **`FILE_RECEIVED` is deliberately _not_ suppressed**: it represents an object already written to disk, and a `FILE_RECEIVED` arriving after finalize indicates finalization fired too early (a drain/stream-ordering bug) rather than an event to hide — dropping it would lose an image. That case is tracked separately for root-cause diagnosis.
+
 ## [0.16.0] - 2026-05-31
 
 ### Fixed

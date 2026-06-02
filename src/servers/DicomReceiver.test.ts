@@ -916,6 +916,51 @@ describe('DicomReceiver', () => {
             await receiver.stop();
         });
 
+        it('suppresses a late ASSOCIATION_RECEIVED after the worker has finalized', async () => {
+            // Regression: dcmrecv stdout can deliver a stray ASSOCIATION_RECEIVED
+            // for a just-finished association after the worker finalized and went
+            // idle. Bubbling it would make a consumer register an association that
+            // never gets a matching ASSOCIATION_FINALIZED, stranding it.
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) return;
+
+            const receiver = result.value;
+            const events: PoolAssociationReceivedData[] = [];
+            receiver.onAssociationReceived(data => events.push(data));
+
+            await receiver.start();
+            const worker = createdFakes[0];
+            if (worker === undefined) return;
+
+            // Make worker busy, then a legitimate ASSOCIATION_RECEIVED bubbles.
+            if (connectionHandler !== undefined) {
+                connectionHandler(createMockSocket());
+                await delay(50);
+            }
+            worker.emit('ASSOCIATION_RECEIVED', { source: '192.168.1.1:5000', callingAE: 'SCU1', calledAE: 'DCMRECV' });
+            expect(events).toHaveLength(1);
+
+            // Finalize the association (worker → idle, finalized = true).
+            worker.emit('ASSOCIATION_COMPLETE', {
+                associationId: 'assoc-internal-1',
+                callingAE: 'SCU1',
+                calledAE: 'DCMRECV',
+                source: '192.168.1.1:5000',
+                files: [],
+                durationMs: 10,
+                endReason: 'release',
+            });
+            await delay(50);
+            expect(receiver.poolStatus.busy).toBe(0);
+
+            // A late stray ASSOCIATION_RECEIVED for the finished association must
+            // NOT bubble — still exactly one event from the legitimate one.
+            worker.emit('ASSOCIATION_RECEIVED', { source: '192.168.1.1:5000', callingAE: 'SCU1', calledAE: 'DCMRECV' });
+            expect(events).toHaveLength(1);
+
+            await receiver.stop();
+        });
+
         it('emits C_STORE_REQUEST when worker receives store request', async () => {
             const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
             if (!result.ok) return;
