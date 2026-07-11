@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.0-rc.1] - 2026-07-11
+
+### Changed
+
+- **Promoted from alpha preview to release candidate.** No code changes — this release is `0.16.1`
+  with its status label corrected. The library has been in production use for months; the alpha
+  banner ("API may have breaking changes before 1.0. Use in production at your own risk.") no longer
+  described reality and was actively discouraging adoption of something already carrying real DICOM
+  traffic.
+- **The public API is now frozen for 1.0.** Tool wrappers, server classes, `DicomReceiver`,
+  `DicomSender`/`DicomSend`, `PacsClient`, and the DICOM data layer (`DicomDataset`, `ChangeSet`,
+  `DicomInstance`) are considered stable. Breaking changes before 1.0 final would require a
+  compelling reason and will be called out here.
+
+### Notes
+
+- Published to npm under the `rc` dist-tag, so `latest` continues to resolve to the 0.x line until
+  1.0 final. Install the candidate explicitly with `npm install @ubercode/dcmtk@rc`.
+- [#29](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/29) remains open: under extreme
+  concurrency, `dcmrecv` can emit events after an association has been finalized, so
+  `ASSOCIATION_FINALIZED` may not be strictly terminal. The 0.16.1 fix suppresses the observed stray
+  (`ASSOCIATION_RECEIVED`); the root cause is still being chased. This does not affect the public API
+  surface and so does not block the RC.
+
 ## [0.16.1] - 2026-06-02
 
 ### Fixed

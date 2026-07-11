@@ -1,6 +1,7 @@
 # @ubercode/dcmtk
 
-> **ALPHA PREVIEW** — API may have breaking changes before 1.0. Use in production at your own risk.
+> **RELEASE CANDIDATE** — the public API is frozen for 1.0. In production use. Breaking changes before
+> 1.0 final would require a compelling reason and will be called out in the [changelog](CHANGELOG.md).
 
 [![npm version](https://img.shields.io/npm/v/@ubercode/dcmtk.svg)](https://www.npmjs.com/package/@ubercode/dcmtk)
 [![npm downloads](https://img.shields.io/npm/dm/@ubercode/dcmtk.svg)](https://www.npmjs.com/package/@ubercode/dcmtk)
