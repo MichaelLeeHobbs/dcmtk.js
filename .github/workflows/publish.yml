@@ -28,4 +28,22 @@ jobs:
             - run: pnpm run typecheck
             - run: pnpm run test
             - run: pnpm run build
-            - run: npm publish --provenance --access public
+
+            # A prerelease must not become `latest` -- npm rejects `npm publish` without an explicit
+            # --tag for one. Derive the dist-tag from the version: 1.0.0-rc.1 -> rc, 1.0.0 -> latest.
+            - name: Determine npm dist-tag
+              id: disttag
+              run: |
+                  VERSION="$(node -p 'require("./package.json").version')"
+                  if [ "$GITHUB_REF_NAME" != "v$VERSION" ]; then
+                      echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $VERSION"
+                      exit 1
+                  fi
+                  case "$VERSION" in
+                      *-*) PRERELEASE="${VERSION#*-}"; TAG="${PRERELEASE%%.*}" ;;
+                      *)   TAG="latest" ;;
+                  esac
+                  echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+                  echo "Publishing $VERSION under dist-tag '$TAG'"
+
+            - run: npm publish --provenance --access public --tag "${{ steps.disttag.outputs.tag }}"
