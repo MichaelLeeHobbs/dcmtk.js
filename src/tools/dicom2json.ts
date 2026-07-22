@@ -167,7 +167,7 @@ async function parseFromFile(inputPath: string, timeoutMs: number, options?: Dic
 function dicom2jsonFromBuffer(buffer: Uint8Array, options?: Dicom2jsonBufferOptions): Result<Dicom2jsonResult> {
     const validation = Dicom2jsonBufferOptionsSchema.safeParse(options);
     if (!validation.success) {
-        return err(createValidationError('dicom2json', validation.error));
+        return err(createValidationError('dicom2jsonFromBuffer', validation.error));
     }
     const parsed = parseDicomBuffer(buffer, options);
     if (!parsed.ok) {

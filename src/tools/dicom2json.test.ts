@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from 'vitest';
 import { ok, err } from '../types';
 import { TS, evenPad, explicitEl, p10 } from '../../test/helpers/p10';
 
@@ -20,15 +20,16 @@ let tempDir: string;
 let validPath: string;
 let garbagePath: string;
 
-beforeEach(async () => {
+beforeAll(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'dicom2json-test-'));
+    validPath = join(tempDir, 'valid.dcm');
+    garbagePath = join(tempDir, 'garbage.dcm');
+    await writeFile(validPath, VALID_FILE);
+    await writeFile(garbagePath, Buffer.from('not dicom '.repeat(20)));
+});
+
+beforeEach(() => {
     vi.clearAllMocks();
-    if (tempDir === undefined) {
-        tempDir = await mkdtemp(join(tmpdir(), 'dicom2json-test-'));
-        validPath = join(tempDir, 'valid.dcm');
-        garbagePath = join(tempDir, 'garbage.dcm');
-        await writeFile(validPath, VALID_FILE);
-        await writeFile(garbagePath, Buffer.from('not dicom '.repeat(20)));
-    }
 });
 
 afterAll(async () => {
