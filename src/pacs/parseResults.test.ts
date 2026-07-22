@@ -8,18 +8,18 @@ vi.mock('node:fs/promises', () => ({
     rm: vi.fn(),
 }));
 
-vi.mock('../tools/dcm2json', () => ({
-    dcm2json: vi.fn(),
+vi.mock('../tools/dicom2json', () => ({
+    dicom2json: vi.fn(),
 }));
 
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
-import { dcm2json } from '../tools/dcm2json';
+import { dicom2json } from '../tools/dicom2json';
 import { createTempDir, listDcmFiles, cleanupTempDir, parseSingleFile, parseExtractedFiles, MAX_RESPONSE_FILES } from './parseResults';
 
 const mockedMkdtemp = vi.mocked(mkdtemp);
 const mockedReaddir = vi.mocked(readdir);
 const mockedRm = vi.mocked(rm);
-const mockedDcm2json = vi.mocked(dcm2json);
+const mockedDcm2json = vi.mocked(dicom2json);
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -113,7 +113,7 @@ describe('cleanupTempDir', () => {
 describe('parseSingleFile', () => {
     it('parses a DICOM file into a DicomDataset', async () => {
         const mockJson = { '00100010': { vr: 'PN', Value: [{ Alphabetic: 'DOE^JOHN' }] } };
-        mockedDcm2json.mockResolvedValue(ok({ data: mockJson, source: 'xml' as const }));
+        mockedDcm2json.mockResolvedValue(ok({ data: mockJson, warnings: [], source: 'js' as const }));
         const result = await parseSingleFile('/tmp/test.dcm', 30000);
         expect(result.ok).toBe(true);
         if (result.ok) {
@@ -127,14 +127,15 @@ describe('parseSingleFile', () => {
         expect(result.ok).toBe(false);
     });
 
-    it('passes timeout and signal to dcm2json', async () => {
+    it('passes timeout, signal, and DCMTK fallback to dicom2json', async () => {
         const controller = new AbortController();
         const mockJson = { '00100010': { vr: 'PN', Value: [{ Alphabetic: 'TEST' }] } };
-        mockedDcm2json.mockResolvedValue(ok({ data: mockJson, source: 'xml' as const }));
+        mockedDcm2json.mockResolvedValue(ok({ data: mockJson, warnings: [], source: 'js' as const }));
         await parseSingleFile('/tmp/test.dcm', 5000, controller.signal);
         expect(mockedDcm2json).toHaveBeenCalledWith('/tmp/test.dcm', {
             timeoutMs: 5000,
             signal: controller.signal,
+            dcmtkFallback: true,
         });
     });
 });
@@ -143,7 +144,7 @@ describe('parseExtractedFiles', () => {
     it('parses all dcm files in the directory', async () => {
         mockedReaddir.mockResolvedValue(['a.dcm', 'b.dcm'] as never);
         const mockJson = { '00100010': { vr: 'PN', Value: [{ Alphabetic: 'TEST' }] } };
-        mockedDcm2json.mockResolvedValue(ok({ data: mockJson, source: 'xml' as const }));
+        mockedDcm2json.mockResolvedValue(ok({ data: mockJson, warnings: [], source: 'js' as const }));
 
         const result = await parseExtractedFiles('/tmp/test', 30000, 5);
         expect(result.ok).toBe(true);
@@ -164,7 +165,7 @@ describe('parseExtractedFiles', () => {
     it('skips files that fail to parse', async () => {
         mockedReaddir.mockResolvedValue(['good.dcm', 'bad.dcm'] as never);
         const mockJson = { '00100010': { vr: 'PN', Value: [{ Alphabetic: 'TEST' }] } };
-        mockedDcm2json.mockResolvedValueOnce(ok({ data: mockJson, source: 'xml' as const })).mockResolvedValueOnce(err(new Error('corrupt file')));
+        mockedDcm2json.mockResolvedValueOnce(ok({ data: mockJson, warnings: [], source: 'js' as const })).mockResolvedValueOnce(err(new Error('corrupt file')));
 
         const result = await parseExtractedFiles('/tmp/test', 30000, 5);
         expect(result.ok).toBe(true);
@@ -186,7 +187,7 @@ describe('parseExtractedFiles', () => {
         }
         mockedReaddir.mockResolvedValue(entries as never);
         const mockJson = { '00100010': { vr: 'PN', Value: [{ Alphabetic: 'TEST' }] } };
-        mockedDcm2json.mockResolvedValue(ok({ data: mockJson, source: 'xml' as const }));
+        mockedDcm2json.mockResolvedValue(ok({ data: mockJson, warnings: [], source: 'js' as const }));
 
         const result = await parseExtractedFiles('/tmp/test', 30000, 2);
         expect(result.ok).toBe(true);
@@ -206,7 +207,7 @@ describe('parseExtractedFiles', () => {
         controller.abort();
 
         const mockJson = { '00100010': { vr: 'PN', Value: [{ Alphabetic: 'TEST' }] } };
-        mockedDcm2json.mockResolvedValue(ok({ data: mockJson, source: 'xml' as const }));
+        mockedDcm2json.mockResolvedValue(ok({ data: mockJson, warnings: [], source: 'js' as const }));
 
         const result = await parseExtractedFiles('/tmp/test', 30000, 2, controller.signal);
         expect(result.ok).toBe(true);

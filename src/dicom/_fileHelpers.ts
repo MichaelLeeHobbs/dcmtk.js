@@ -25,10 +25,16 @@ interface FileIOOptions {
 
 /** Options for opening a DICOM file. Extends FileIOOptions with read-specific settings. */
 interface DicomOpenOptions extends FileIOOptions {
-    /** Assume the specified character set when SpecificCharacterSet (0008,0005) is absent. Maps to dcm2xml `+Ca`. */
+    /** Assume the specified character set when SpecificCharacterSet (0008,0005) is absent. Accepts DICOM defined terms ('ISO_IR 100') or DCMTK-style aliases ('latin-1'). */
     readonly charsetAssume?: string | undefined;
-    /** Fallback charset to retry with when UTF-8 conversion fails due to illegal byte sequences. Maps to dcm2xml `+Ca`. When set, a charset conversion failure triggers an automatic retry with this charset assumed. `'Latin1'` is recommended — it maps every byte 0x00-0xFF to a valid character, so conversion never fails. */
+    /** Fallback charset to decode with when the file's character set is unsupported or conversion fails. `'latin-1'` is recommended — it maps every byte 0x00-0xFF to a valid character, so decoding never fails. */
     readonly charsetFallback?: string | undefined;
+    /**
+     * Parse engine. `'js'` (default) parses in-process via {@link dicom2json}
+     * and automatically falls back to the DCMTK binaries when the JS parser
+     * fails; `'dcmtk'` uses the deprecated dcm2json binary path exclusively.
+     */
+    readonly engine?: 'js' | 'dcmtk' | undefined;
 }
 
 /** Bridges a ChangeSet to a dcmodify call on the given file. */

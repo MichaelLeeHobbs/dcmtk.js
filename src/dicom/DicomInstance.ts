@@ -15,9 +15,27 @@ import type { Result } from '../types';
 import { err, ok } from '../types';
 import { ChangeSet } from './ChangeSet';
 import { DicomDataset } from './DicomDataset';
-import { dcm2json } from '../tools';
+import { dcm2json, dicom2json } from '../tools';
+import type { DicomJsonModel } from '../tools';
 import type { DicomOpenOptions, FileIOOptions } from './_fileHelpers';
 import { applyModifications, copyFileSafe, statFileSize, unlinkFile } from './_fileHelpers';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Reads a DICOM file into the JSON Model using the engine selected in the options. */
+async function readDicomJson(path: string, options?: DicomOpenOptions): Promise<Result<DicomJsonModel>> {
+    const shared = {
+        timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+        signal: options?.signal,
+        charsetAssume: options?.charsetAssume,
+        charsetFallback: options?.charsetFallback,
+    };
+    const result = options?.engine === 'dcmtk' ? await dcm2json(path, shared) : await dicom2json(path, { ...shared, dcmtkFallback: true });
+    if (!result.ok) return err(result.error);
+    return ok(result.value.data);
+}
 
 // ---------------------------------------------------------------------------
 // DicomInstance class
@@ -69,15 +87,10 @@ class DicomInstance {
         const filePathResult = createDicomFilePath(path);
         if (!filePathResult.ok) return err(filePathResult.error);
 
-        const jsonResult = await dcm2json(path, {
-            timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-            signal: options?.signal,
-            charsetAssume: options?.charsetAssume,
-            charsetFallback: options?.charsetFallback,
-        });
+        const jsonResult = await readDicomJson(path, options);
         if (!jsonResult.ok) return err(jsonResult.error);
 
-        const datasetResult = DicomDataset.fromJson(jsonResult.value.data);
+        const datasetResult = DicomDataset.fromJson(jsonResult.value);
         if (!datasetResult.ok) return err(datasetResult.error);
 
         return ok(new DicomInstance(datasetResult.value, ChangeSet.empty(), filePathResult.value, new Map()));

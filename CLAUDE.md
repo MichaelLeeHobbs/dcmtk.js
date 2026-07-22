@@ -80,7 +80,7 @@ All code **shall** comply with `docs/TypeScript Coding Standard for Mission-Crit
 
 51 async functions wrapping DCMTK binaries, organized by category:
 
-- **Data & Metadata** — `dcm2xml`, `dcm2json`, `dcmdump`, `dcmconv`, `dcmodify`, `dcmftest`, `dcmgpdir`, `dcmmkdir`, `dcmqridx`
+- **Data & Metadata** — `dcm2xml`, `dicom2json` (pure-JS, no binary), `dcm2json` (deprecated), `dcmdump`, `dcmconv`, `dcmodify`, `dcmftest`, `dcmgpdir`, `dcmmkdir`, `dcmqridx`
 - **File Conversion** — `xml2dcm`, `json2dcm`, `dump2dcm`, `img2dcm`, `pdf2dcm`, `dcm2pdf`, `cda2dcm`, `dcm2cda`, `stl2dcm`
 - **Compression** — `dcmcrle`, `dcmdrle`, `dcmencap`, `dcmdecap`, `dcmcjpeg`, `dcmdjpeg`, `dcmcjpls`, `dcmdjpls`
 - **Image Processing** — `dcmj2pnm`, `dcm2pnm`, `dcmscale`, `dcmquant`, `dcmdspfn`, `dcod2lum`, `dconvlum`
@@ -198,17 +198,18 @@ All tools: `(options) => Promise<Result<T>>`. All accept optional `signal: Abort
 
 #### Data & Metadata
 
-| Function   | Signature                                      | Description             |
-| ---------- | ---------------------------------------------- | ----------------------- |
-| `dcm2xml`  | `(inputPath, options?) => Result<{xml}>`       | DICOM to XML            |
-| `dcm2json` | `(inputPath, options?) => Result<{json}>`      | DICOM to JSON Model     |
-| `dcmdump`  | `(options) => Result<{output}>`                | Dump DICOM contents     |
-| `dcmconv`  | `(options) => Result<{outputPath}>`            | Convert transfer syntax |
-| `dcmodify` | `(inputPath, options) => Result<{outputPath}>` | Modify DICOM tags       |
-| `dcmftest` | `(options) => Result<{isValidDicom}>`          | Validate DICOM file     |
-| `dcmgpdir` | `(options) => Result<{}>`                      | Modify DICOMDIR         |
-| `dcmmkdir` | `(options) => Result<{}>`                      | Create DICOMDIR         |
-| `dcmqridx` | `(options) => Result<{}>`                      | Index DICOM database    |
+| Function     | Signature                                                   | Description                                                                                                                                                            |
+| ------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dcm2xml`    | `(inputPath, options?) => Result<{xml}>`                    | DICOM to XML                                                                                                                                                           |
+| `dicom2json` | `(inputPath, options?) => Result<{data, warnings, source}>` | DICOM to JSON Model — pure JS, no DCMTK binary, ~75x faster; `dcmtkFallback` option retries via binaries. `dicom2jsonFromBuffer(buffer)` is the sync in-memory variant |
+| `dcm2json`   | `(inputPath, options?) => Result<{json}>`                   | **Deprecated** — DICOM to JSON Model via DCMTK binaries (renumbers private tag blocks; kept as escape hatch)                                                           |
+| `dcmdump`    | `(options) => Result<{output}>`                             | Dump DICOM contents                                                                                                                                                    |
+| `dcmconv`    | `(options) => Result<{outputPath}>`                         | Convert transfer syntax                                                                                                                                                |
+| `dcmodify`   | `(inputPath, options) => Result<{outputPath}>`              | Modify DICOM tags                                                                                                                                                      |
+| `dcmftest`   | `(options) => Result<{isValidDicom}>`                       | Validate DICOM file                                                                                                                                                    |
+| `dcmgpdir`   | `(options) => Result<{}>`                                   | Modify DICOMDIR                                                                                                                                                        |
+| `dcmmkdir`   | `(options) => Result<{}>`                                   | Create DICOMDIR                                                                                                                                                        |
+| `dcmqridx`   | `(options) => Result<{}>`                                   | Index DICOM database                                                                                                                                                   |
 
 #### File Conversion
 

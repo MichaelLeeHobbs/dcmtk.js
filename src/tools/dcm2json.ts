@@ -179,11 +179,19 @@ async function execAndParse(
 }
 
 /**
- * Converts a DICOM file to the DICOM JSON Model.
+ * Converts a DICOM file to the DICOM JSON Model using DCMTK binaries.
  *
  * Uses a two-phase strategy:
  * 1. Primary: dcm2xml → XML-to-JSON conversion (more reliable)
  * 2. Fallback: direct dcm2json binary with JSON repair
+ *
+ * The fallback only runs when time budget remains; when both paths fail,
+ * the returned error includes both failures.
+ *
+ * @deprecated Use {@link dicom2json} — the pure-JS parser is ~75x faster,
+ * needs no DCMTK binaries, and preserves private tags correctly (this
+ * binary path renumbers private blocks in its XML output). This function
+ * remains available as an escape hatch (see `dcmtkFallback` on dicom2json).
  *
  * @param inputPath - Path to the DICOM input file
  * @param options - Conversion options
@@ -207,23 +215,50 @@ async function dcm2json(inputPath: string, options?: Dcm2jsonOptions): Promise<R
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const signal = options?.signal;
     const startTime = Date.now();
-    const remaining = (): number => Math.max(1000, timeoutMs - (Date.now() - startTime));
+    const remaining = (): number => Math.max(0, timeoutMs - (Date.now() - startTime));
 
     const verbosity = options?.verbosity;
 
     // Direct-only mode: skip XML path
     if (options?.directOnly === true) {
-        return tryDirectPath(inputPath, remaining(), signal, verbosity);
+        return tryDirectPath(inputPath, timeoutMs, signal, verbosity);
     }
 
     // Try XML path first
-    const xmlResult = await tryXmlPath(inputPath, remaining(), signal, buildXmlOpts(options));
+    const xmlResult = await tryXmlPath(inputPath, timeoutMs, signal, buildXmlOpts(options));
     if (xmlResult.ok) {
         return xmlResult;
     }
 
-    // Fall back to direct path with remaining time budget
-    return tryDirectPath(inputPath, remaining(), signal, verbosity);
+    return fallbackToDirect(inputPath, xmlResult.error, { budget: remaining(), timeoutMs, signal, verbosity });
+}
+
+/** Context for the direct-path fallback after an XML path failure. */
+interface FallbackContext {
+    readonly budget: number;
+    readonly timeoutMs: number;
+    readonly signal?: AbortSignal | undefined;
+    readonly verbosity?: 'verbose' | 'debug' | undefined;
+}
+
+/**
+ * Runs the direct-path fallback only if time budget remains — a doomed
+ * fallback would time out immediately and mask the XML path's error.
+ * When both paths fail, the returned error includes both failures.
+ */
+async function fallbackToDirect(inputPath: string, xmlError: Error, context: FallbackContext): Promise<Result<Dcm2jsonResult>> {
+    if (context.budget === 0) {
+        return err(
+            new Error(
+                `dcm2json: XML path failed and timeout budget (${String(context.timeoutMs)}ms) is exhausted (skipping direct fallback) | xml: ${xmlError.message}`
+            )
+        );
+    }
+    const directResult = await tryDirectPath(inputPath, context.budget, context.signal, context.verbosity);
+    if (directResult.ok) {
+        return directResult;
+    }
+    return err(new Error(`dcm2json: both paths failed | xml: ${xmlError.message} | direct: ${directResult.error.message}`));
 }
 
 export { dcm2json };

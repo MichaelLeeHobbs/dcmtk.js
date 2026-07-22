@@ -152,6 +152,22 @@ describe('xmlToJson()', () => {
         }
     });
 
+    it('decodes empty value positions as empty strings, not the number attribute', () => {
+        const xml = `<?xml version="1.0"?>
+<NativeDicomModel>
+  <DicomAttribute tag="00080008" vr="CS" keyword="ImageType">
+    <Value number="1"/>
+    <Value number="2">SECONDARY</Value>
+  </DicomAttribute>
+</NativeDicomModel>`;
+        const result = xmlToJson(xml);
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.value['00080008']).toEqual({ vr: 'CS', Value: ['', 'SECONDARY'] });
+        }
+    });
+
     it('converts multiple elements', () => {
         const result = xmlToJson(MULTI_ELEMENT_XML);
 

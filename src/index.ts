@@ -97,6 +97,9 @@ export type { Dcm2xmlOptions, Dcm2xmlResult, Dcm2xmlCharsetValue } from './tools
 export { dcm2json } from './tools/dcm2json';
 export type { Dcm2jsonOptions, Dcm2jsonResult, Dcm2jsonSource, DicomJsonModel } from './tools/dcm2json';
 
+export { dicom2json, dicom2jsonFromBuffer } from './tools/dicom2json';
+export type { Dicom2jsonOptions, Dicom2jsonBufferOptions, Dicom2jsonResult, Dicom2jsonSource } from './tools/dicom2json';
+
 export { dcmdump, DcmdumpFormat } from './tools/dcmdump';
 export type { DcmdumpOptions, DcmdumpResult, DcmdumpFormatValue } from './tools/dcmdump';
 
