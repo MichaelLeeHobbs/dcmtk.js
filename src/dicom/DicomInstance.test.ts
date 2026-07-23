@@ -11,6 +11,10 @@ vi.mock('../tools/dcm2json', () => ({
     dcm2json: vi.fn(),
 }));
 
+vi.mock('../tools/dicom2json', () => ({
+    dicom2json: vi.fn(),
+}));
+
 vi.mock('../tools/dcmodify', () => ({
     dcmodify: vi.fn(),
 }));
@@ -22,10 +26,12 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 import { dcm2json } from '../tools/dcm2json';
+import { dicom2json } from '../tools/dicom2json';
 import { dcmodify } from '../tools/dcmodify';
 import { copyFile, stat, unlink } from 'node:fs/promises';
 
 const mockedDcm2json = vi.mocked(dcm2json);
+const mockedDicom2json = vi.mocked(dicom2json);
 const mockedDcmodify = vi.mocked(dcmodify);
 const mockedCopyFile = vi.mocked(copyFile);
 const mockedStat = vi.mocked(stat);
@@ -45,6 +51,10 @@ beforeEach(() => {
     mockedDcm2json.mockResolvedValue({
         ok: true,
         value: { data: SAMPLE_JSON, source: 'xml' as const },
+    });
+    mockedDicom2json.mockResolvedValue({
+        ok: true,
+        value: { data: SAMPLE_JSON, warnings: [], source: 'js' as const },
     });
     mockedDcmodify.mockResolvedValue({
         ok: true,
@@ -72,47 +82,61 @@ describe('DicomInstance', () => {
             expect(result.ok).toBe(false);
         });
 
-        it('returns error when dcm2json fails', async () => {
-            mockedDcm2json.mockResolvedValue({
+        it('returns error when the parser fails', async () => {
+            mockedDicom2json.mockResolvedValue({
                 ok: false,
-                error: new Error('dcm2json: failed'),
+                error: new Error('dicom2json: failed'),
             });
             const result = await DicomInstance.open('/path/to/test.dcm');
             expect(result.ok).toBe(false);
         });
 
         it('returns error for invalid JSON data', async () => {
-            mockedDcm2json.mockResolvedValue({
+            mockedDicom2json.mockResolvedValue({
                 ok: true,
-                value: { data: null as unknown as DicomJsonModel, source: 'xml' as const },
+                value: { data: null as unknown as DicomJsonModel, warnings: [], source: 'js' as const },
             });
             const result = await DicomInstance.open('/path/to/test.dcm');
             expect(result.ok).toBe(false);
         });
 
-        it('passes options to dcm2json', async () => {
+        it('passes options to dicom2json with DCMTK fallback enabled', async () => {
             const controller = new AbortController();
             await DicomInstance.open('/path/to/test.dcm', {
                 timeoutMs: 5000,
                 signal: controller.signal,
             });
-            expect(mockedDcm2json).toHaveBeenCalledWith('/path/to/test.dcm', {
+            expect(mockedDicom2json).toHaveBeenCalledWith('/path/to/test.dcm', {
                 timeoutMs: 5000,
                 signal: controller.signal,
                 charsetAssume: undefined,
+                dcmtkFallback: true,
             });
+            expect(mockedDcm2json).not.toHaveBeenCalled();
         });
 
-        it('passes charsetAssume to dcm2json', async () => {
+        it('passes charsetAssume to dicom2json', async () => {
             await DicomInstance.open('/path/to/test.dcm', {
                 charsetAssume: 'ISO_IR 100',
             });
-            expect(mockedDcm2json).toHaveBeenCalledWith(
+            expect(mockedDicom2json).toHaveBeenCalledWith(
                 '/path/to/test.dcm',
                 expect.objectContaining({
                     charsetAssume: 'ISO_IR 100',
                 })
             );
+        });
+
+        it("uses the deprecated dcm2json path when engine is 'dcmtk'", async () => {
+            const result = await DicomInstance.open('/path/to/test.dcm', { engine: 'dcmtk' });
+            expect(result.ok).toBe(true);
+            expect(mockedDcm2json).toHaveBeenCalledWith(
+                '/path/to/test.dcm',
+                expect.objectContaining({
+                    timeoutMs: expect.any(Number) as number,
+                })
+            );
+            expect(mockedDicom2json).not.toHaveBeenCalled();
         });
     });
 

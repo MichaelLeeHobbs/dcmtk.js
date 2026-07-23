@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **`dicom2json` — pure-JS DICOM parsing, no DCMTK binaries required**
+  ([#30](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/30)). A new parser built on
+  `dicom-parser` that produces the same DICOM JSON Model as `dcm2json`, ~75x faster
+  (measured 1.4ms vs 104ms per file): no process spawn, no multi-MB XML intermediate, and bulk
+  pixel data is never loaded. Character sets are decoded natively — all single-byte ISO_IR sets,
+  UTF-8, GB18030/GBK, Shift_JIS, and the common ISO 2022 code extensions (Japanese IR 13/87,
+  Korean IR 149, Chinese IR 58), validated against the PS3.5 Annex H/I/J examples. Also exports
+  a synchronous in-memory variant `dicom2jsonFromBuffer(buffer)`. Verified by a differential
+  integration suite: tag-for-tag agreement with the dcm2xml path across all 198 sample files.
+- **`DicomInstance.open` / `DicomReceiver` / `PacsClient` now parse with the JS engine by
+  default**, with automatic fallback to the DCMTK binaries when the JS parser fails
+  (`dcmtkFallback`). Pass `engine: 'dcmtk'` in `DicomOpenOptions` to force the old path.
+  This eliminates the timeout pathology from #30: the receiver's per-instance parse no longer
+  competes for CPU with dcm2xml's XML generation.
+- The JS engine includes file meta group 0002 in its output, so
+  `DicomDataset.transferSyntaxUID` now returns the actual transfer syntax (it was always
+  empty on the XML path, which omits group 0002).
+
+### Fixed
+
+- **`dcm2json`: fallback no longer runs with a doomed 1000ms floor**
+  ([#30](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/30)). Previously, when the dcm2xml
+  path consumed the whole timeout budget, the direct-binary fallback ran with a hardcoded
+  `Math.max(1000, …)` floor, timed out immediately, and its error masked the real one. The
+  fallback now runs only with the genuinely remaining budget; when the budget is exhausted it
+  is skipped, and when both paths fail the returned error includes **both** failures.
+- **`xmlToJson`: empty value positions leaked their `number` attribute as the value.** An empty
+  `<Value number="1"/>` in dcm2xml output (e.g. ImageType `\SECONDARY\INTRAOPERATIVE`) was
+  decoded as the string `"1"` instead of `""`.
+
+### Deprecated
+
+- **`dcm2json` is deprecated in favor of `dicom2json`.** It remains exported and functional as
+  an escape hatch. Beyond performance, the binary path has a correctness defect the JS engine
+  does not: dcm2xml renumbers private tag blocks (e.g. `(0019,1030)` → `(0019,0030)`), which can
+  even overwrite the private-creator slot — verified against `dcmdump` ground truth.
+
+### Known limitations
+
+- The JS engine cannot tokenize files using **explicit VR** `SV`/`UV`/`OV` (rare, 2019-era VRs;
+  `dicom-parser` predates them). Such files fail gracefully and are covered by the automatic
+  DCMTK fallback in `DicomInstance.open`/`PacsClient`. Implicit VR files are unaffected.
+
 ## [1.0.0-rc.1] - 2026-07-11
 
 ### Changed

@@ -2,7 +2,7 @@
  * Parses extracted DICOM response files from findscu --extract.
  *
  * Creates temp directories, lists .dcm files, and batch-parses them
- * into DicomDataset instances using dcm2json.
+ * into DicomDataset instances using dicom2json (pure-JS, DCMTK fallback).
  *
  * @module pacs/parseResults
  */
@@ -14,7 +14,7 @@ import { stderr, tryCatch } from 'stderr-lib';
 
 import type { Result } from '../types';
 import { ok, err } from '../types';
-import { dcm2json } from '../tools/dcm2json';
+import { dicom2json } from '../tools/dicom2json';
 import { DicomDataset } from '../dicom/DicomDataset';
 
 /** Maximum number of response files to process (safety bound per Rule 8.1). */
@@ -79,12 +79,12 @@ async function cleanupTempDir(directory: string): Promise<void> {
  * Parses a single DICOM file into a DicomDataset.
  *
  * @param filePath - Path to the .dcm file
- * @param timeoutMs - Timeout for dcm2json
+ * @param timeoutMs - Timeout per parse
  * @param signal - Optional abort signal
  * @returns A Result containing the DicomDataset
  */
 async function parseSingleFile(filePath: string, timeoutMs: number, signal?: AbortSignal): Promise<Result<DicomDataset>> {
-    const jsonResult = await dcm2json(filePath, { timeoutMs, signal });
+    const jsonResult = await dicom2json(filePath, { timeoutMs, signal, dcmtkFallback: true });
     if (!jsonResult.ok) {
         return err(jsonResult.error);
     }
@@ -100,7 +100,7 @@ async function parseSingleFile(filePath: string, timeoutMs: number, signal?: Abo
  * detect partial failures.
  *
  * @param directory - Directory containing extracted .dcm files
- * @param timeoutMs - Timeout per file for dcm2json
+ * @param timeoutMs - Timeout per file
  * @param concurrency - Max concurrent parse operations
  * @param signal - Optional abort signal
  * @returns A Result containing the array of DicomDatasets

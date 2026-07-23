@@ -178,5 +178,47 @@ describe('dcm2json', () => {
             const result = await dcm2json('/input.dcm');
             expect(result.ok).toBe(false);
         });
+
+        it('aggregates both path errors when both paths fail', async () => {
+            mockedExecCommand
+                .mockResolvedValueOnce({ ok: false, error: new Error('dcm2xml timed out') })
+                .mockResolvedValueOnce({ ok: false, error: new Error('dcm2json crashed') });
+            const result = await dcm2json('/input.dcm');
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error.message).toContain('both paths failed');
+                expect(result.error.message).toContain('dcm2xml timed out');
+                expect(result.error.message).toContain('dcm2json crashed');
+            }
+        });
+
+        it('skips the direct fallback when the timeout budget is exhausted', async () => {
+            mockedExecCommand.mockResolvedValue({ ok: false, error: new Error('dcm2xml timed out after 5000ms') });
+            const nowSpy = vi.spyOn(Date, 'now');
+            nowSpy.mockReturnValueOnce(0).mockReturnValueOnce(5_001);
+            const result = await dcm2json('/input.dcm', { timeoutMs: 5000 });
+            nowSpy.mockRestore();
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error.message).toContain('timeout budget');
+                expect(result.error.message).toContain('skipping direct fallback');
+                expect(result.error.message).toContain('dcm2xml timed out after 5000ms');
+            }
+            // The direct path must never have been launched
+            expect(mockedExecCommand).toHaveBeenCalledTimes(1);
+        });
+
+        it('runs the direct fallback with the remaining budget, not a fixed floor', async () => {
+            mockedExecCommand
+                .mockResolvedValueOnce({ ok: false, error: new Error('xml failed fast') })
+                .mockResolvedValueOnce({ ok: true, value: { stdout: '{}', stderr: '', exitCode: 0 } });
+            const nowSpy = vi.spyOn(Date, 'now');
+            nowSpy.mockReturnValueOnce(0).mockReturnValueOnce(2_000);
+            const result = await dcm2json('/input.dcm', { timeoutMs: 5000 });
+            nowSpy.mockRestore();
+            expect(result.ok).toBe(true);
+            const directCall = mockedExecCommand.mock.calls[1];
+            expect(directCall?.[2]).toEqual(expect.objectContaining({ timeoutMs: 3_000 }));
+        });
     });
 });

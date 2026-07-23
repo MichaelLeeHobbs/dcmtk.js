@@ -235,14 +235,19 @@ function convertSequence(attr: XmlDicomAttribute, element: ElementBuilder): void
 /** VRs whose values MUST be JSON numbers per DICOM PS3.18 F.2.3. */
 const NUMERIC_JSON_VRS = new Set(['DS', 'FL', 'FD', 'IS', 'SL', 'SS', 'SV', 'UL', 'US', 'UV']);
 
-/** Unwraps fast-xml-parser attribute wrapper objects (e.g., {@_number: "1"}). */
+/**
+ * Unwraps fast-xml-parser attribute wrapper objects (e.g., {'#text': 'v', '@_number': '1'}).
+ * An attribute-only object is an empty element (`<Value number="1"/>`) and
+ * unwraps to the empty string — returning the attribute value here would leak
+ * the value ordinal as the element value.
+ */
 function unwrapValue(v: unknown): unknown {
     if (typeof v !== 'object' || v === null) return v;
     const obj = v as Record<string, unknown>;
     if ('#text' in obj) return obj['#text'];
     const keys = Object.keys(obj);
-    if (keys.length === 1 && keys[0] !== undefined && keys[0].startsWith('@_')) {
-        return obj[keys[0]];
+    if (keys.every(k => k.startsWith('@_'))) {
+        return '';
     }
     return v;
 }
@@ -346,5 +351,5 @@ function xmlToJson(xml: string): Result<DicomJsonModel> {
     }
 }
 
-export { xmlToJson };
+export { xmlToJson, coerceNumeric, KNOWN_VR_CODES, NUMERIC_JSON_VRS };
 export type { DicomJsonModel, DicomJsonElement };

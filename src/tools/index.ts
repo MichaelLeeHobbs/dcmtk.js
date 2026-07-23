@@ -18,6 +18,9 @@ export type { Dcm2xmlOptions, Dcm2xmlResult, Dcm2xmlCharsetValue } from './dcm2x
 export { dcm2json } from './dcm2json';
 export type { Dcm2jsonOptions, Dcm2jsonResult, Dcm2jsonSource, DicomJsonModel } from './dcm2json';
 
+export { dicom2json, dicom2jsonFromBuffer } from './dicom2json';
+export type { Dicom2jsonOptions, Dicom2jsonBufferOptions, Dicom2jsonResult, Dicom2jsonSource } from './dicom2json';
+
 export { dcmdump, DcmdumpFormat } from './dcmdump';
 export type { DcmdumpOptions, DcmdumpResult, DcmdumpFormatValue } from './dcmdump';
 

@@ -30,9 +30,51 @@ if (result.ok) {
 
 ---
 
-## dcm2json
+## dicom2json
 
-Convert a DICOM file to DICOM JSON Model (PS3.18 F.2).
+Convert a DICOM file to DICOM JSON Model (PS3.18 F.2) **without DCMTK binaries** — a pure-JS parser
+(~75x faster than the dcm2xml path: no process spawn, no XML intermediate, bulk pixel data never loaded).
+
+```typescript
+import { dicom2json, dicom2jsonFromBuffer } from '@ubercode/dcmtk';
+
+const result = await dicom2json('/path/to/image.dcm');
+if (result.ok) {
+    console.log(result.value.data['00100010']); // Patient Name element
+    console.log('Source:', result.value.source); // 'js'
+}
+
+// Synchronous, in-memory variant (no file I/O):
+const bufferResult = dicom2jsonFromBuffer(buffer, { charsetAssume: 'latin-1' });
+```
+
+| Option            | Type      | Default | Description                                                                                     |
+| ----------------- | --------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `charsetAssume`   | `string`  | —       | Charset to assume when SpecificCharacterSet (0008,0005) is absent (`'ISO_IR 100'`, `'latin-1'`) |
+| `charsetFallback` | `string`  | —       | Charset to decode with when the file's charset is unsupported (`'latin-1'` recommended)         |
+| `dcmtkFallback`   | `boolean` | `false` | Retry with the deprecated dcm2json binary path when the JS parser fails                         |
+
+**Result:** `{ data: DicomJsonModel, warnings: readonly string[], source: 'js' | 'xml' | 'direct' }`
+
+Character sets: all single-byte ISO_IR sets, UTF-8, GB18030/GBK, Shift_JIS, and the common
+ISO 2022 code extensions (Japanese IR 13/87, Korean IR 149, Chinese IR 58) are decoded natively.
+
+Differences from the dcm2json binary path (both verified against `dcmdump` ground truth):
+
+- File meta group 0002 elements are **included**, so `DicomDataset.transferSyntaxUID` works.
+- Private tags keep their real block numbers (dcm2xml renumbers private blocks incorrectly).
+- Known limitation: files using **explicit VR** `SV`/`UV`/`OV` (rare, 2019-era VRs) fail to
+  tokenize — enable `dcmtkFallback` to cover them. Implicit VR files are unaffected.
+
+---
+
+## dcm2json (deprecated)
+
+> **Deprecated:** use [`dicom2json`](#dicom2json). This path spawns DCMTK binaries, is ~75x slower,
+> and renumbers private tag blocks in its XML output. It remains available as an escape hatch
+> (see `dcmtkFallback` above).
+
+Convert a DICOM file to DICOM JSON Model (PS3.18 F.2) using DCMTK binaries.
 
 ```typescript
 import { dcm2json } from '@ubercode/dcmtk';
@@ -50,7 +92,9 @@ if (result.ok) {
 
 **Result:** `{ data: DicomJsonModel, source: 'xml' | 'direct' }`
 
-Internally uses a two-phase strategy: dcm2xml then XML parsing (more reliable), with direct dcm2json as fallback.
+Internally uses a two-phase strategy: dcm2xml then XML parsing (more reliable), with direct dcm2json
+as fallback. The fallback only runs when time budget remains; when both paths fail, the error
+includes both failures.
 
 ---
 
