@@ -24,22 +24,55 @@ import { applyModifications, copyFileSafe, statFileSize, unlinkFile } from './_f
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** The JSON Model plus non-fatal parser warnings from reading a file. */
+interface ReadDicomJsonResult {
+    readonly data: DicomJsonModel;
+    readonly warnings: readonly string[];
+}
+
+/** Shared per-call options for both engines. */
+interface SharedReadOptions {
+    readonly timeoutMs: number;
+    readonly signal?: AbortSignal | undefined;
+    readonly charsetAssume?: string | undefined;
+    readonly charsetFallback?: string | undefined;
+}
+
+/** Reads via the deprecated dcm2json binary path (no warnings channel). */
+async function readViaDcmtk(path: string, shared: SharedReadOptions): Promise<Result<ReadDicomJsonResult>> {
+    const result = await dcm2json(path, shared);
+    if (!result.ok) return err(result.error);
+    return ok({ data: result.value.data, warnings: [] });
+}
+
 /** Reads a DICOM file into the JSON Model using the engine selected in the options. */
-async function readDicomJson(path: string, options?: DicomOpenOptions): Promise<Result<DicomJsonModel>> {
-    const shared = {
+async function readDicomJson(path: string, options?: DicomOpenOptions): Promise<Result<ReadDicomJsonResult>> {
+    const shared: SharedReadOptions = {
         timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
         signal: options?.signal,
         charsetAssume: options?.charsetAssume,
         charsetFallback: options?.charsetFallback,
     };
-    const result = options?.engine === 'dcmtk' ? await dcm2json(path, shared) : await dicom2json(path, { ...shared, dcmtkFallback: true });
+    if (options?.engine === 'dcmtk') {
+        return readViaDcmtk(path, shared);
+    }
+    const result = await dicom2json(path, { ...shared, utf8MislabelPromote: options?.utf8MislabelPromote, dcmtkFallback: true });
     if (!result.ok) return err(result.error);
-    return ok(result.value.data);
+    return ok({ data: result.value.data, warnings: result.value.warnings });
 }
 
 // ---------------------------------------------------------------------------
 // DicomInstance class
 // ---------------------------------------------------------------------------
+
+/** Complete internal state of a DicomInstance. */
+interface DicomInstanceState {
+    readonly dataset: DicomDataset;
+    readonly changes: ChangeSet;
+    readonly filePath: DicomFilePath | undefined;
+    readonly metadata: ReadonlyMap<string, unknown>;
+    readonly warnings: readonly string[];
+}
 
 /**
  * Unified DICOM object composing dataset, change tracking, file path, and metadata.
@@ -64,12 +97,26 @@ class DicomInstance {
     private readonly changeSet: ChangeSet;
     private readonly filepath: DicomFilePath | undefined;
     private readonly meta: ReadonlyMap<string, unknown>;
+    private readonly warningList: readonly string[];
 
-    private constructor(dataset: DicomDataset, changes: ChangeSet, filePath: DicomFilePath | undefined, metadata: ReadonlyMap<string, unknown>) {
-        this.dicomDataset = dataset;
-        this.changeSet = changes;
-        this.filepath = filePath;
-        this.meta = metadata;
+    private constructor(state: DicomInstanceState) {
+        this.dicomDataset = state.dataset;
+        this.changeSet = state.changes;
+        this.filepath = state.filePath;
+        this.meta = state.metadata;
+        this.warningList = state.warnings;
+    }
+
+    /** Creates a copy with the given fields replaced. */
+    private derive(overrides: Partial<DicomInstanceState>): DicomInstance {
+        return new DicomInstance({
+            dataset: this.dicomDataset,
+            changes: this.changeSet,
+            filePath: this.filepath,
+            metadata: this.meta,
+            warnings: this.warningList,
+            ...overrides,
+        });
     }
 
     // -----------------------------------------------------------------------
@@ -90,10 +137,18 @@ class DicomInstance {
         const jsonResult = await readDicomJson(path, options);
         if (!jsonResult.ok) return err(jsonResult.error);
 
-        const datasetResult = DicomDataset.fromJson(jsonResult.value);
+        const datasetResult = DicomDataset.fromJson(jsonResult.value.data);
         if (!datasetResult.ok) return err(datasetResult.error);
 
-        return ok(new DicomInstance(datasetResult.value, ChangeSet.empty(), filePathResult.value, new Map()));
+        return ok(
+            new DicomInstance({
+                dataset: datasetResult.value,
+                changes: ChangeSet.empty(),
+                filePath: filePathResult.value,
+                metadata: new Map(),
+                warnings: jsonResult.value.warnings,
+            })
+        );
     }
 
     /**
@@ -110,7 +165,7 @@ class DicomInstance {
             if (!fpResult.ok) return err(fpResult.error);
             fp = fpResult.value;
         }
-        return ok(new DicomInstance(dataset, ChangeSet.empty(), fp, new Map()));
+        return ok(new DicomInstance({ dataset, changes: ChangeSet.empty(), filePath: fp, metadata: new Map(), warnings: [] }));
     }
 
     // -----------------------------------------------------------------------
@@ -135,6 +190,16 @@ class DicomInstance {
     /** The file path, or undefined if this instance has no associated file. */
     get filePath(): string | undefined {
         return this.filepath;
+    }
+
+    /**
+     * Non-fatal parser warnings from opening the file (e.g. `possible UTF-8 mislabel: <tag>`).
+     *
+     * Empty for instances created via {@link DicomInstance.fromDataset} or opened with
+     * `engine: 'dcmtk'`. Preserved across fluent modifications.
+     */
+    get warnings(): readonly string[] {
+        return this.warningList;
     }
 
     /** Patient's Name (0010,0010). */
@@ -231,7 +296,7 @@ class DicomInstance {
      * @param value - The new value
      */
     setTag(path: string, value: string): DicomInstance {
-        return new DicomInstance(this.dicomDataset, this.changeSet.setTag(path, value), this.filepath, this.meta);
+        return this.derive({ changes: this.changeSet.setTag(path, value) });
     }
 
     /**
@@ -240,12 +305,12 @@ class DicomInstance {
      * @param path - The DICOM tag path to erase
      */
     eraseTag(path: string): DicomInstance {
-        return new DicomInstance(this.dicomDataset, this.changeSet.eraseTag(path), this.filepath, this.meta);
+        return this.derive({ changes: this.changeSet.eraseTag(path) });
     }
 
     /** Erases all private tags, returning a new DicomInstance. */
     erasePrivateTags(): DicomInstance {
-        return new DicomInstance(this.dicomDataset, this.changeSet.erasePrivateTags(), this.filepath, this.meta);
+        return this.derive({ changes: this.changeSet.erasePrivateTags() });
     }
 
     /** Sets Patient's Name (0010,0010). */
@@ -309,7 +374,7 @@ class DicomInstance {
      * @param entries - A record of tag path → value pairs
      */
     setBatch(entries: Readonly<Record<string, string>>): DicomInstance {
-        return new DicomInstance(this.dicomDataset, this.changeSet.setBatch(entries), this.filepath, this.meta);
+        return this.derive({ changes: this.changeSet.setBatch(entries) });
     }
 
     /**
@@ -319,7 +384,7 @@ class DicomInstance {
      * @returns A new DicomInstance with accumulated changes
      */
     withChanges(changes: ChangeSet): DicomInstance {
-        return new DicomInstance(this.dicomDataset, this.changeSet.merge(changes), this.filepath, this.meta);
+        return this.derive({ changes: this.changeSet.merge(changes) });
     }
 
     /**
@@ -334,7 +399,7 @@ class DicomInstance {
     withFilePath(newPath: string): DicomInstance {
         const result = createDicomFilePath(newPath);
         if (!result.ok) throw result.error;
-        return new DicomInstance(this.dicomDataset, this.changeSet, result.value, this.meta);
+        return this.derive({ filePath: result.value });
     }
 
     // -----------------------------------------------------------------------
@@ -379,7 +444,7 @@ class DicomInstance {
             }
         }
 
-        return ok(new DicomInstance(this.dicomDataset, ChangeSet.empty(), outPathResult.value, this.meta));
+        return ok(this.derive({ changes: ChangeSet.empty(), filePath: outPathResult.value }));
     }
 
     /**
@@ -418,7 +483,7 @@ class DicomInstance {
     withMetadata(key: string, value: unknown): DicomInstance {
         const newMeta = new Map(this.meta);
         newMeta.set(key, value);
-        return new DicomInstance(this.dicomDataset, this.changeSet, this.filepath, newMeta);
+        return this.derive({ metadata: newMeta });
     }
 
     /**

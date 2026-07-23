@@ -122,6 +122,25 @@ describe('dicom2json', () => {
         expect(mockedDcm2json).not.toHaveBeenCalled();
     });
 
+    it('surfaces mislabel warnings and promotes with utf8MislabelPromote', async () => {
+        const mislabeledPath = join(tempDir, 'mislabeled.dcm');
+        await writeFile(mislabeledPath, p10(TS.explicitLE, [explicitEl('00100010', 'PN', evenPad(Buffer.from('Müller^José', 'utf-8').toString('latin1')))]));
+
+        const detected = await dicom2json(mislabeledPath);
+        expect(detected.ok).toBe(true);
+        if (detected.ok) {
+            expect(detected.value.data['00100010']).toEqual({ vr: 'PN', Value: [{ Alphabetic: 'MÃ¼ller^JosÃ©' }] });
+            expect(detected.value.warnings).toContain("possible UTF-8 mislabel: 00100010 (decoded as 'ISO_IR 6')");
+        }
+
+        const promoted = await dicom2json(mislabeledPath, { utf8MislabelPromote: true });
+        expect(promoted.ok).toBe(true);
+        if (promoted.ok) {
+            expect(promoted.value.data['00100010']).toEqual({ vr: 'PN', Value: [{ Alphabetic: 'Müller^José' }] });
+            expect(promoted.value.warnings).toContain('possible UTF-8 mislabel: 00100010 (decoded as UTF-8)');
+        }
+    });
+
     it('also falls back on file read errors when fallback is enabled', async () => {
         mockedDcm2json.mockResolvedValue(ok({ data: {}, source: 'xml' as const }));
         const result = await dicom2json(join(tempDir, 'nope.dcm'), { dcmtkFallback: true });
@@ -150,6 +169,16 @@ describe('dicom2jsonFromBuffer', () => {
     it('rejects unknown options', () => {
         const result = dicom2jsonFromBuffer(VALID_FILE, { timeoutMs: 5 } as never);
         expect(result.ok).toBe(false);
+    });
+
+    it('applies utf8MislabelPromote', () => {
+        const file = p10(TS.explicitLE, [explicitEl('00100010', 'PN', evenPad(Buffer.from('Müller', 'utf-8').toString('latin1')))]);
+        const result = dicom2jsonFromBuffer(file, { utf8MislabelPromote: true });
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.value.data['00100010']).toEqual({ vr: 'PN', Value: [{ Alphabetic: 'Müller' }] });
+            expect(result.value.warnings).toHaveLength(1);
+        }
     });
 
     it('returns an error for a non-DICOM buffer', () => {

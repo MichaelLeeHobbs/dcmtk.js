@@ -138,6 +138,44 @@ describe('DicomInstance', () => {
             );
             expect(mockedDicom2json).not.toHaveBeenCalled();
         });
+
+        it('surfaces parser warnings on the instance (#34)', async () => {
+            mockedDicom2json.mockResolvedValue({
+                ok: true,
+                value: { data: SAMPLE_JSON, warnings: ['possible UTF-8 mislabel: 00100010'], source: 'js' as const },
+            });
+            const result = await DicomInstance.open('/path/to/test.dcm');
+            expect(result.ok).toBe(true);
+            if (result.ok) expect(result.value.warnings).toEqual(['possible UTF-8 mislabel: 00100010']);
+        });
+
+        it('preserves warnings across fluent modifications', async () => {
+            mockedDicom2json.mockResolvedValue({
+                ok: true,
+                value: { data: SAMPLE_JSON, warnings: ['w1'], source: 'js' as const },
+            });
+            const result = await DicomInstance.open('/path/to/test.dcm');
+            expect(result.ok).toBe(true);
+            if (!result.ok) return;
+            const modified = result.value.setPatientName('DOE^JOHN').withMetadata('k', 'v');
+            expect(modified.warnings).toEqual(['w1']);
+        });
+
+        it('passes utf8MislabelPromote to dicom2json', async () => {
+            await DicomInstance.open('/path/to/test.dcm', { utf8MislabelPromote: true });
+            expect(mockedDicom2json).toHaveBeenCalledWith(
+                '/path/to/test.dcm',
+                expect.objectContaining({
+                    utf8MislabelPromote: true,
+                })
+            );
+        });
+
+        it("reports empty warnings for engine 'dcmtk'", async () => {
+            const result = await DicomInstance.open('/path/to/test.dcm', { engine: 'dcmtk' });
+            expect(result.ok).toBe(true);
+            if (result.ok) expect(result.value.warnings).toEqual([]);
+        });
     });
 
     describe('fromDataset()', () => {

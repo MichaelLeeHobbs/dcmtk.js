@@ -166,16 +166,17 @@ const inst = instResult.value;
 
 ### Properties
 
-| Property            | Type                  | Description                        |
-| ------------------- | --------------------- | ---------------------------------- |
-| `dataset`           | `DicomDataset`        | Immutable parsed dataset           |
-| `filePath`          | `string \| undefined` | File path (undefined if in-memory) |
-| `changes`           | `ChangeSet`           | Accumulated pending changes        |
-| `hasUnsavedChanges` | `boolean`             | Whether there are pending changes  |
-| `patientName`       | `string`              | Convenience getter for (0010,0010) |
-| `patientID`         | `string`              | Convenience getter for (0010,0020) |
-| `modality`          | `string`              | Convenience getter for (0008,0060) |
-| `studyDate`         | `string`              | Convenience getter for (0008,0020) |
+| Property            | Type                  | Description                                                                                                                     |
+| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset`           | `DicomDataset`        | Immutable parsed dataset                                                                                                        |
+| `filePath`          | `string \| undefined` | File path (undefined if in-memory)                                                                                              |
+| `changes`           | `ChangeSet`           | Accumulated pending changes                                                                                                     |
+| `hasUnsavedChanges` | `boolean`             | Whether there are pending changes                                                                                               |
+| `warnings`          | `readonly string[]`   | Non-fatal parser warnings from opening (e.g. `possible UTF-8 mislabel: <tag>`); empty for `engine: 'dcmtk'` and `fromDataset()` |
+| `patientName`       | `string`              | Convenience getter for (0010,0010)                                                                                              |
+| `patientID`         | `string`              | Convenience getter for (0010,0020)                                                                                              |
+| `modality`          | `string`              | Convenience getter for (0008,0060)                                                                                              |
+| `studyDate`         | `string`              | Convenience getter for (0008,0020)                                                                                              |
 
 ### Modifying Tags (Fluent API)
 

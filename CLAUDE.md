@@ -468,6 +468,7 @@ inst.patientName; // string (convenience getter)
 inst.dataset; // DicomDataset
 inst.filePath; // string | undefined
 inst.changes; // ChangeSet
+inst.warnings; // readonly string[] (parser warnings, e.g. possible UTF-8 mislabel)
 
 const modified = inst.setPatientName('DOE^JOHN').erasePrivateTags();
 const updated = inst.withChanges(changes); // merge external ChangeSet

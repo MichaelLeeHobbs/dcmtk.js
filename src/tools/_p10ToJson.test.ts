@@ -278,6 +278,77 @@ describe('parseDicomBuffer — charset integration', () => {
     });
 });
 
+describe('parseDicomBuffer — UTF-8 mislabel detection (#34)', () => {
+    const utf8Name = evenPad(Buffer.from('Müller^José', 'utf-8').toString('latin1'));
+
+    it('warns when UTF-8 bytes appear under the ASCII default (no 0008,0005)', () => {
+        const result = parseDicomBuffer(p10(TS.explicitLE, [explicitEl('00100010', 'PN', utf8Name)]));
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value.data['00100010']).toEqual({ vr: 'PN', Value: [{ Alphabetic: 'MÃ¼ller^JosÃ©' }] });
+        expect(result.value.warnings).toContain("possible UTF-8 mislabel: 00100010 (decoded as 'ISO_IR 6')");
+    });
+
+    it('warns when UTF-8 bytes appear under a declared single-byte charset', () => {
+        const result = parseDicomBuffer(p10(TS.explicitLE, [explicitEl('00080005', 'CS', evenPad('ISO_IR 100')), explicitEl('00100010', 'PN', utf8Name)]));
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value.warnings).toContain("possible UTF-8 mislabel: 00100010 (decoded as 'ISO_IR 100')");
+    });
+
+    it('decodes as UTF-8 when utf8MislabelPromote is set, still warning', () => {
+        const result = parseDicomBuffer(p10(TS.explicitLE, [explicitEl('00100010', 'PN', utf8Name)]), { utf8MislabelPromote: true });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value.data['00100010']).toEqual({ vr: 'PN', Value: [{ Alphabetic: 'Müller^José' }] });
+        expect(result.value.warnings).toContain('possible UTF-8 mislabel: 00100010 (decoded as UTF-8)');
+    });
+
+    it('does not warn for correctly-labeled UTF-8 (ISO_IR 192)', () => {
+        const result = parseDicomBuffer(p10(TS.explicitLE, [explicitEl('00080005', 'CS', evenPad('ISO_IR 192')), explicitEl('00100010', 'PN', utf8Name)]));
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value.data['00100010']).toEqual({ vr: 'PN', Value: [{ Alphabetic: 'Müller^José' }] });
+        expect(result.value.warnings).toHaveLength(0);
+    });
+
+    it('does not warn for genuine Latin-1 high bytes (invalid as UTF-8)', () => {
+        const result = parseDicomBuffer(
+            p10(TS.explicitLE, [explicitEl('00080005', 'CS', evenPad('ISO_IR 100')), explicitEl('00100010', 'PN', evenPad('M\xfcller'))])
+        );
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value.data['00100010']).toEqual({ vr: 'PN', Value: [{ Alphabetic: 'Müller' }] });
+        expect(result.value.warnings).toHaveLength(0);
+    });
+
+    it('applies detection to charset-sensitive VRs and warns once per tag', () => {
+        const utf8Lo = evenPad(Buffer.from('José', 'utf-8').toString('latin1'));
+        const itemContent = Buffer.concat([explicitEl('00081090', 'LO', utf8Lo)]);
+        const result = parseDicomBuffer(
+            p10(TS.explicitLE, [
+                explicitEl('00081090', 'LO', utf8Lo),
+                sqExplicit('00081140', [itemContent, itemContent]),
+                explicitEl('00100010', 'PN', utf8Name),
+            ])
+        );
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const mislabels = result.value.warnings.filter(w => w.includes('mislabel'));
+        expect(mislabels).toHaveLength(2);
+        expect(mislabels.some(w => w.includes('00081090'))).toBe(true);
+        expect(mislabels.some(w => w.includes('00100010'))).toBe(true);
+    });
+
+    it('does not apply detection to non-charset VRs', () => {
+        const utf8Cs = evenPad(Buffer.from('Aé', 'utf-8').toString('latin1'));
+        const result = parseDicomBuffer(p10(TS.explicitLE, [explicitEl('00080060', 'CS', utf8Cs)]));
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value.warnings).toHaveLength(0);
+    });
+});
+
 describe('parseDicomBuffer — structure and errors', () => {
     it('includes file meta group 0002 and omits group lengths', () => {
         const data = parse(p10(TS.explicitLE, [explicitEl('00100020', 'LO', evenPad('PAT001'))]));
