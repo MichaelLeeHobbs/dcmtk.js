@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readDicomHead } from '../../../src/tools/_boundedRead';
@@ -55,7 +55,7 @@ describe('readDicomHead — differential vs full read (all samples)', () => {
             const bounded = await readDicomHead(filePath, { timeoutMs: 30_000, thresholdBytes: 0, chunkBytes: 4_096 });
             if (bounded.ok) {
                 boundedTotal += bounded.value.length;
-                fileTotal += readFileSync(filePath).length;
+                fileTotal += statSync(filePath).size;
             }
         }
         expect(boundedTotal).toBeLessThan(fileTotal / 2);

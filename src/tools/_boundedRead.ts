@@ -88,6 +88,7 @@ interface ReadState {
     readonly bigEndian: boolean;
     readonly metaEnd: number;
     readonly deadline: number;
+    readonly timeoutMs: number;
     readonly signal: AbortSignal | undefined;
     /** The synthetic buffer: file bytes read so far, minus skipped bulk values (their headers rewritten to length 0). */
     assembled: Buffer;
@@ -140,12 +141,12 @@ async function readRange(handle: FileHandle, position: number, length: number): 
 }
 
 /** Returns an error when the deadline passed or the signal aborted, undefined otherwise. */
-function checkAbort(state: Pick<ReadState, 'deadline' | 'signal'>): Error | undefined {
+function checkAbort(state: Pick<ReadState, 'deadline' | 'signal' | 'timeoutMs'>): Error | undefined {
     if (state.signal?.aborted === true) {
         return new Error('aborted');
     }
     if (Date.now() > state.deadline) {
-        return new Error('timed out');
+        return new Error(`timed out after ${String(state.timeoutMs)}ms`);
     }
     return undefined;
 }
@@ -522,7 +523,7 @@ async function boundedLoop(state: ReadState): Promise<Result<Buffer> | 'fullRead
 }
 
 /** Reads the whole file through the open handle. */
-async function readWhole(handle: FileHandle, fileSize: number, state: Pick<ReadState, 'deadline' | 'signal'>): Promise<Result<Buffer>> {
+async function readWhole(handle: FileHandle, fileSize: number, state: Pick<ReadState, 'deadline' | 'signal' | 'timeoutMs'>): Promise<Result<Buffer>> {
     const abort = checkAbort(state);
     if (abort !== undefined) {
         return err(abort);
@@ -534,7 +535,7 @@ async function readWhole(handle: FileHandle, fileSize: number, state: Pick<ReadS
 async function readWithHandle(handle: FileHandle, options: BoundedReadOptions): Promise<Result<Buffer>> {
     const fileSize = (await handle.stat()).size;
     const deadline = Date.now() + options.timeoutMs;
-    const guard = { deadline, signal: options.signal };
+    const guard = { deadline, signal: options.signal, timeoutMs: options.timeoutMs };
     const threshold = options.thresholdBytes ?? BOUNDED_READ_THRESHOLD_BYTES;
     const chunkBytes = options.chunkBytes ?? BOUNDED_READ_CHUNK_BYTES;
     if (fileSize <= threshold) {
@@ -557,6 +558,7 @@ async function readWithHandle(handle: FileHandle, options: BoundedReadOptions): 
         bigEndian: meta.transferSyntax === TS_EXPLICIT_BE,
         metaEnd: meta.metaEnd,
         deadline,
+        timeoutMs: options.timeoutMs,
         signal: options.signal,
         assembled: headResult.value,
         filePos: headResult.value.length,
@@ -589,7 +591,11 @@ async function readDicomHead(inputPath: string, options: BoundedReadOptions): Pr
         return err(new Error(`failed to read '${inputPath}': ${message}`));
     }
     try {
-        return await readWithHandle(handle, options);
+        const result = await readWithHandle(handle, options);
+        if (result.ok) {
+            return result;
+        }
+        return err(new Error(`reading '${inputPath}' failed: ${result.error.message}`));
         /* v8 ignore next 4 -- all internal paths return Results; this guards unexpected throws */
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
