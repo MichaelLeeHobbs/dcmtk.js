@@ -111,7 +111,10 @@ describe('dicom2json', () => {
 
     it('skips the fallback when the timeout budget is exhausted', async () => {
         const nowSpy = vi.spyOn(Date, 'now');
-        nowSpy.mockReturnValueOnce(0).mockReturnValueOnce(30_001);
+        // First call: dicom2json's start time. All later calls (including the
+        // bounded reader's own deadline checks): 30 001 ms later, so the read
+        // itself succeeds but the fallback budget is exhausted.
+        nowSpy.mockReturnValueOnce(0).mockReturnValue(30_001);
         const result = await dicom2json(garbagePath, { dcmtkFallback: true });
         nowSpy.mockRestore();
         expect(result.ok).toBe(false);
@@ -139,6 +142,27 @@ describe('dicom2json', () => {
             expect(promoted.value.data['00100010']).toEqual({ vr: 'PN', Value: [{ Alphabetic: 'Müller^José' }] });
             expect(promoted.value.warnings).toContain('possible UTF-8 mislabel: 00100010 (decoded as UTF-8)');
         }
+    });
+
+    it('bounded-reads large files by default, tag-identical to a full read', async () => {
+        const largePath = join(tempDir, 'large.dcm');
+        const large = p10(TS.explicitLE, [
+            explicitEl('00100010', 'PN', evenPad('Smith^John')),
+            explicitEl('00100020', 'LO', evenPad('PAT001')),
+            explicitEl('7FE00010', 'OB', Buffer.alloc(9 * 1024 * 1024, 0xab)),
+        ]);
+        await writeFile(largePath, large);
+
+        const bounded = await dicom2json(largePath);
+        const full = await dicom2json(largePath, { boundedRead: false });
+        expect(bounded.ok).toBe(true);
+        expect(full.ok).toBe(true);
+        if (bounded.ok && full.ok) {
+            expect(bounded.value.data).toEqual(full.value.data);
+            expect(bounded.value.data['7FE00010']).toEqual({ vr: 'OB' });
+            expect(bounded.value.data['00100010']).toEqual({ vr: 'PN', Value: [{ Alphabetic: 'Smith^John' }] });
+        }
+        await rm(largePath, { force: true });
     });
 
     it('also falls back on file read errors when fallback is enabled', async () => {

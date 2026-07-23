@@ -383,5 +383,5 @@ function parseDicomBuffer(buffer: Uint8Array, options?: P10ParseOptions): Result
     return ok({ data, warnings: [...dataSet.warnings, ...mislabel.warnings] });
 }
 
-export { parseDicomBuffer };
+export { parseDicomBuffer, implicitVrLookup };
 export type { P10ParseOptions, P10ParseResult };

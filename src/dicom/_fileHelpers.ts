@@ -36,6 +36,12 @@ interface DicomOpenOptions extends FileIOOptions {
      */
     readonly utf8MislabelPromote?: boolean | undefined;
     /**
+     * Bounded head-read: for files above ~8 MB, read only the metadata and skip bulk value bytes.
+     * Output is identical; peak memory scales with metadata instead of file size. JS engine only.
+     * Defaults to true.
+     */
+    readonly boundedRead?: boolean | undefined;
+    /**
      * Parse engine. `'js'` (default) parses in-process via {@link dicom2json}
      * and automatically falls back to the DCMTK binaries when the JS parser
      * fails; `'dcmtk'` uses the deprecated dcm2json binary path exclusively.

@@ -45,6 +45,18 @@ async function readViaDcmtk(path: string, shared: SharedReadOptions): Promise<Re
     return ok({ data: result.value.data, warnings: [] });
 }
 
+/** Reads via the JS engine with automatic DCMTK fallback. */
+async function readViaJs(path: string, shared: SharedReadOptions, options?: DicomOpenOptions): Promise<Result<ReadDicomJsonResult>> {
+    const result = await dicom2json(path, {
+        ...shared,
+        utf8MislabelPromote: options?.utf8MislabelPromote,
+        boundedRead: options?.boundedRead,
+        dcmtkFallback: true,
+    });
+    if (!result.ok) return err(result.error);
+    return ok({ data: result.value.data, warnings: result.value.warnings });
+}
+
 /** Reads a DICOM file into the JSON Model using the engine selected in the options. */
 async function readDicomJson(path: string, options?: DicomOpenOptions): Promise<Result<ReadDicomJsonResult>> {
     const shared: SharedReadOptions = {
@@ -56,9 +68,7 @@ async function readDicomJson(path: string, options?: DicomOpenOptions): Promise<
     if (options?.engine === 'dcmtk') {
         return readViaDcmtk(path, shared);
     }
-    const result = await dicom2json(path, { ...shared, utf8MislabelPromote: options?.utf8MislabelPromote, dcmtkFallback: true });
-    if (!result.ok) return err(result.error);
-    return ok({ data: result.value.data, warnings: result.value.warnings });
+    return readViaJs(path, shared, options);
 }
 
 // ---------------------------------------------------------------------------
