@@ -260,6 +260,7 @@ const DicomReceiverOptionsSchema = z
                 charsetAssume: z.string().min(1).optional(),
                 charsetFallback: z.string().min(1).optional(),
                 utf8MislabelPromote: z.boolean().optional(),
+                boundedRead: z.boolean().optional(),
                 engine: z.enum(['js', 'dcmtk']).optional(),
             })
             .strict()

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **`dicom2json`: bounded head-read — metadata-sized memory for any file size**
+  ([#35](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/35)). The JS engine previously read
+  the whole file onto the heap, so peak memory for concurrent parses of large multiframe
+  instances scaled with (concurrent parses × file size). Files above 8 MB are now read in chunks
+  and bulk value bytes (PixelData and friends — always emitted as bare `{ vr }`) are skipped,
+  including fragment-hopping for encapsulated pixel data. Output is byte-identical to a full
+  read (verified by a forced-bounded differential suite over all 198 samples: same data, same
+  warnings, 98.4% fewer bytes read); any structural surprise falls back to reading the whole
+  file. On by default for `dicom2json`, `DicomInstance.open`, and `DicomReceiver`; opt out with
+  `boundedRead: false`.
+
 - **`dicom2json`: UTF-8 mislabel detection**
   ([#34](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/34)). Files whose text bytes are
   valid multi-byte UTF-8 while the resolved character set is a single-byte repertoire (or the

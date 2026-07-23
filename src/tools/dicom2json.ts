@@ -24,6 +24,7 @@ import { ok, err } from '../types';
 import { DEFAULT_TIMEOUT_MS } from '../constants';
 import { createValidationError } from './_toolError';
 import { parseDicomBuffer } from './_p10ToJson';
+import { readDicomHead } from './_boundedRead';
 import { dcm2json } from './dcm2json';
 import type { DicomJsonModel } from './_xmlToJson';
 import type { ToolBaseOptions } from './_toolTypes';
@@ -44,6 +45,13 @@ interface Dicom2jsonOptions extends ToolBaseOptions {
     readonly utf8MislabelPromote?: boolean | undefined;
     /** Retry with the deprecated dcm2json binary path when the JS parser fails. Defaults to false. */
     readonly dcmtkFallback?: boolean | undefined;
+    /**
+     * Bounded head-read: for files above ~8 MB, read only the metadata and skip bulk value bytes
+     * (PixelData and friends), keeping peak memory proportional to the metadata instead of the file.
+     * The parse output is identical — bulk VRs are always emitted as bare `{ vr }`. Set false to
+     * always read the whole file. Defaults to true.
+     */
+    readonly boundedRead?: boolean | undefined;
 }
 
 /** Options for {@link dicom2jsonFromBuffer} (charset handling only). */
@@ -67,6 +75,7 @@ const Dicom2jsonOptionsSchema = z
         charsetFallback: z.string().min(1).optional(),
         utf8MislabelPromote: z.boolean().optional(),
         dcmtkFallback: z.boolean().optional(),
+        boundedRead: z.boolean().optional(),
     })
     .strict()
     .optional();
@@ -149,9 +158,21 @@ async function dicom2json(inputPath: string, options?: Dicom2jsonOptions): Promi
     return err(parsed.error);
 }
 
+/** Reads a file via the bounded head-reader, wrapping errors in the dicom2json namespace. */
+async function readHeadBounded(inputPath: string, timeoutMs: number, signal?: AbortSignal): Promise<Result<Buffer>> {
+    const result = await readDicomHead(inputPath, { timeoutMs, signal });
+    if (result.ok) {
+        return result;
+    }
+    return err(new Error(`dicom2json: ${result.error.message}`));
+}
+
 /** Reads and parses a file with the JS engine. */
 async function parseFromFile(inputPath: string, timeoutMs: number, options?: Dicom2jsonOptions): Promise<Result<Dicom2jsonResult>> {
-    const fileResult = await readFileBounded(inputPath, timeoutMs, options?.signal);
+    const fileResult =
+        options?.boundedRead === false
+            ? await readFileBounded(inputPath, timeoutMs, options?.signal)
+            : await readHeadBounded(inputPath, timeoutMs, options?.signal);
     if (!fileResult.ok) {
         return err(fileResult.error);
     }

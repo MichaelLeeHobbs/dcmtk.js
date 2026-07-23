@@ -48,12 +48,13 @@ if (result.ok) {
 const bufferResult = dicom2jsonFromBuffer(buffer, { charsetAssume: 'latin-1' });
 ```
 
-| Option                | Type      | Default | Description                                                                                     |
-| --------------------- | --------- | ------- | ----------------------------------------------------------------------------------------------- |
-| `charsetAssume`       | `string`  | —       | Charset to assume when SpecificCharacterSet (0008,0005) is absent (`'ISO_IR 100'`, `'latin-1'`) |
-| `charsetFallback`     | `string`  | —       | Charset to decode with when the file's charset is unsupported (`'latin-1'` recommended)         |
-| `utf8MislabelPromote` | `boolean` | `false` | Decode values detected as mislabeled UTF-8 as UTF-8 instead of the declared charset             |
-| `dcmtkFallback`       | `boolean` | `false` | Retry with the deprecated dcm2json binary path when the JS parser fails                         |
+| Option                | Type      | Default | Description                                                                                      |
+| --------------------- | --------- | ------- | ------------------------------------------------------------------------------------------------ |
+| `charsetAssume`       | `string`  | —       | Charset to assume when SpecificCharacterSet (0008,0005) is absent (`'ISO_IR 100'`, `'latin-1'`)  |
+| `charsetFallback`     | `string`  | —       | Charset to decode with when the file's charset is unsupported (`'latin-1'` recommended)          |
+| `utf8MislabelPromote` | `boolean` | `false` | Decode values detected as mislabeled UTF-8 as UTF-8 instead of the declared charset              |
+| `boundedRead`         | `boolean` | `true`  | Bounded head-read for files > 8 MB: skip bulk value bytes, identical output, metadata-sized heap |
+| `dcmtkFallback`       | `boolean` | `false` | Retry with the deprecated dcm2json binary path when the JS parser fails                          |
 
 **Result:** `{ data: DicomJsonModel, warnings: readonly string[], source: 'js' | 'xml' | 'direct' }`
 
@@ -68,6 +69,15 @@ with exit 80; the JS decoders cannot fail on byte content. The parser pushes a
 `utf8MislabelPromote: true` those values are decoded as UTF-8 instead of producing mojibake.
 The same options are accepted by `DicomInstance.open` and `DicomReceiver`'s
 `instanceOpenOptions`, and the warnings surface on `DicomInstance.warnings`.
+
+**Bounded head-read (default):** DICOM elements are stored in ascending tag order and bulk binary
+VRs are always emitted as bare `{ vr }`, so for large files the bulk of the bytes (PixelData and
+friends) would be read and then discarded. With `boundedRead` (on by default), files above 8 MB
+are read in chunks and bulk value bytes are skipped — peak heap scales with the metadata, not the
+file size, killing the (concurrent parses × file size) memory profile for router workloads. The
+output is byte-identical to a full read; any structural surprise (deflated transfer syntax,
+truncation, malformed fragments) automatically falls back to reading the whole file. Set
+`boundedRead: false` to always read whole files. See ADR 006 for details.
 
 Differences from the dcm2json binary path (both verified against `dcmdump` ground truth):
 

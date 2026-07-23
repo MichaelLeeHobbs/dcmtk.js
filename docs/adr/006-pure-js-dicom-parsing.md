@@ -56,3 +56,24 @@ it exported, and use it as an automatic fallback (`dcmtkFallback: true`) from th
   the automatic DCMTK fallback covers them. Implicit VR is unaffected.
 - `dicom-parser` is essentially finished software (slow release cadence). Acceptable: the format
   is stable, the dependency is zero-deps, and the fallback path remains.
+
+## Addendum: bounded head-read (2026-07-23, [#35](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/35))
+
+The original implementation read the whole file onto the Node heap per parse, so for routers
+receiving large multiframe instances concurrently peak heap scaled with
+(concurrent parses × file size) — a regression relative to the binary path, which kept file
+bytes in a short-lived child process.
+
+`_boundedRead` eliminates this: `dicom2json` (default `boundedRead: true`) reads files above an
+8 MB threshold in chunks, probes each chunk with `dicom-parser`, and when the parse stalls inside
+a bulk-VR value (which the JSON Model emits as bare `{ vr }` anyway) rewrites that element's
+length to zero and seeks past the value — encapsulated PixelData is skipped by hopping fragment
+item headers with 8-byte reads. The result is a well-formed synthetic buffer whose parse output
+is identical to the full file's; peak memory is proportional to the metadata.
+
+Correctness posture: a skip happens only when the stall point is provably a bulk-VR element;
+every ambiguous case (unexpected structure, truncation, deflated transfer syntax, undefined-length
+non-PixelData) grows the buffer or falls back to a full read, so behavior — including error
+behavior on corrupt files — is byte-identical to the full path. Verified by a forced-bounded
+differential suite over all 198 samples (data + warnings equality; 98.4% fewer bytes read) plus
+alignment-sweep unit tests that walk element headers across chunk boundaries.
