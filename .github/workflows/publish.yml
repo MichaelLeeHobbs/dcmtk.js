@@ -6,8 +6,8 @@ on:
             - 'v*'
 
 permissions:
-    contents: read
-    id-token: write
+    contents: write # create the GitHub Release
+    id-token: write # npm Trusted Publishing (OIDC) + provenance
 
 jobs:
     publish:
@@ -47,3 +47,15 @@ jobs:
                   echo "Publishing $VERSION under dist-tag '$TAG'"
 
             - run: npm publish --provenance --access public --tag "${{ steps.disttag.outputs.tag }}"
+
+            # Mirror the npm release as a GitHub Release with auto-generated notes.
+            # Prereleases (any dist-tag other than `latest`) are flagged as such.
+            - name: Create GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  EXTRA=""
+                  if [ "${{ steps.disttag.outputs.tag }}" != "latest" ]; then
+                      EXTRA="--prerelease"
+                  fi
+                  gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --title "$GITHUB_REF_NAME" $EXTRA
