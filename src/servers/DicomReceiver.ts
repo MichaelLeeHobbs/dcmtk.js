@@ -259,6 +259,8 @@ const DicomReceiverOptionsSchema = z
                 signal: z.instanceof(AbortSignal).optional(),
                 charsetAssume: z.string().min(1).optional(),
                 charsetFallback: z.string().min(1).optional(),
+                utf8MislabelPromote: z.boolean().optional(),
+                engine: z.enum(['js', 'dcmtk']).optional(),
             })
             .strict()
             .optional(),

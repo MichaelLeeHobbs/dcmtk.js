@@ -23,7 +23,7 @@ import { stderr } from 'stderr-lib';
 import type { Result } from '../types';
 import { ok, err } from '../types';
 import { lookupTag } from '../dicom/dictionary';
-import { decodeDicomText, resolveCharsetContext } from './_charset';
+import { decodeDicomText, decodeUtf8, isProbableUtf8Mislabel, resolveCharsetContext } from './_charset';
 import type { CharsetContext } from './_charset';
 import { coerceNumeric, KNOWN_VR_CODES } from './_xmlToJson';
 import type { DicomJsonModel, DicomJsonElement } from './_xmlToJson';
@@ -34,6 +34,8 @@ interface P10ParseOptions {
     readonly charsetAssume?: string | undefined;
     /** Charset to fall back to when the specified charset is unsupported. */
     readonly charsetFallback?: string | undefined;
+    /** Decode values detected as mislabeled UTF-8 as UTF-8 instead of the declared charset. A warning is pushed either way. */
+    readonly utf8MislabelPromote?: boolean | undefined;
 }
 
 /** Result of a successful buffer parse. */
@@ -167,17 +169,49 @@ function personNameToJson(value: string): Record<string, string> {
     return result;
 }
 
+/** Mutable UTF-8 mislabel state shared across one parse (warnings deduped per tag). */
+interface MislabelState {
+    /** Whether detected mislabels are decoded as UTF-8 instead of the declared charset. */
+    readonly promote: boolean;
+    /** Warning sink (one entry per distinct tag). */
+    readonly warnings: string[];
+    /** Tags already warned about. */
+    readonly seen: Set<string>;
+}
+
+/**
+ * Decodes charset-sensitive text bytes, detecting mislabeled UTF-8 under
+ * single-byte contexts (#34): bytes with a high byte that form valid UTF-8
+ * under a single-byte declared charset are near-certainly mislabeled.
+ */
+function decodeTextChecked(bytes: Uint8Array, tag: string, settings: ConvertSettings): string {
+    const { charset, mislabel } = settings;
+    if (charset.singleByte && isProbableUtf8Mislabel(bytes)) {
+        if (!mislabel.seen.has(tag)) {
+            mislabel.seen.add(tag);
+            const action = mislabel.promote ? 'decoded as UTF-8' : `decoded as '${charset.terms.join('\\')}'`;
+            mislabel.warnings.push(`possible UTF-8 mislabel: ${tag} (${action})`);
+        }
+        if (mislabel.promote) {
+            return decodeUtf8(bytes);
+        }
+    }
+    return decodeDicomText(bytes, charset);
+}
+
 /** Converts a PN element. */
-function convertPersonName(element: Element, byteArray: Uint8Array, charset: CharsetContext): DicomJsonElement {
-    const decoded = decodeDicomText(valueBytes(element, byteArray), charset);
+function convertPersonName(element: Element, byteArray: Uint8Array, settings: ConvertSettings): DicomJsonElement {
+    const decoded = decodeTextChecked(valueBytes(element, byteArray), toJsonTag(element.tag), settings);
     const values = decoded.split('\\').map(personNameToJson);
     return { vr: 'PN', Value: values };
 }
 
 /** Converts a text/string element (everything except SQ, PN, AT, binary, and fixed-width numerics). */
-function convertString(element: Element, byteArray: Uint8Array, vr: string, charset: CharsetContext): DicomJsonElement {
+function convertString(element: Element, byteArray: Uint8Array, vr: string, settings: ConvertSettings): DicomJsonElement {
     const bytes = valueBytes(element, byteArray);
-    const decoded = CHARSET_VRS.has(vr) ? decodeDicomText(bytes, charset) : Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('latin1');
+    const decoded = CHARSET_VRS.has(vr)
+        ? decodeTextChecked(bytes, toJsonTag(element.tag), settings)
+        : Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('latin1');
     const rawValues = NO_SPLIT_VRS.has(vr) ? [decoded] : decoded.split('\\');
     const values: unknown[] = rawValues.map(v => {
         const trimmed = trimPadding(v);
@@ -193,6 +227,7 @@ function convertString(element: Element, byteArray: Uint8Array, vr: string, char
 interface ConvertSettings {
     readonly charset: CharsetContext;
     readonly littleEndian: boolean;
+    readonly mislabel: MislabelState;
 }
 
 /** Converts a non-sequence element to its DICOM JSON representation. */
@@ -215,9 +250,9 @@ function convertLeaf(element: Element, byteArray: Uint8Array, vr: string, settin
         return convertAttributeTag(element, byteArray, settings.littleEndian);
     }
     if (vr === 'PN') {
-        return convertPersonName(element, byteArray, settings.charset);
+        return convertPersonName(element, byteArray, settings);
     }
-    return convertString(element, byteArray, vr, settings.charset);
+    return convertString(element, byteArray, vr, settings);
 }
 
 /** A pending dataset conversion unit for the iterative sequence walk. */
@@ -261,9 +296,16 @@ function isSequence(element: Element, vr: string): boolean {
     return vr === 'SQ' || (element.vr === undefined && element.items !== undefined);
 }
 
+/** Per-parse state shared across all datasets of one file. */
+interface ParseState {
+    readonly littleEndian: boolean;
+    readonly options: P10ParseOptions | undefined;
+    readonly mislabel: MislabelState;
+}
+
 /** Converts all elements of one dataset into its output model. */
-function convertDataset(unit: WorkUnit, stack: WorkUnit[], littleEndian: boolean, options: P10ParseOptions | undefined): Result<void> {
-    const charsetResult = datasetCharset(unit.src, unit.parentCharset, options);
+function convertDataset(unit: WorkUnit, stack: WorkUnit[], state: ParseState): Result<void> {
+    const charsetResult = datasetCharset(unit.src, unit.parentCharset, state.options);
     if (!charsetResult.ok) {
         return err(charsetResult.error);
     }
@@ -279,7 +321,7 @@ function convertDataset(unit: WorkUnit, stack: WorkUnit[], littleEndian: boolean
         if (isSequence(element, vr)) {
             unit.out[tag] = convertSequence(element, stack, charset);
         } else {
-            unit.out[tag] = convertLeaf(element, unit.src.byteArray, vr, { charset, littleEndian });
+            unit.out[tag] = convertLeaf(element, unit.src.byteArray, vr, { charset, littleEndian: state.littleEndian, mislabel: state.mislabel });
         }
     }
     return ok(undefined);
@@ -322,6 +364,8 @@ function parseDicomBuffer(buffer: Uint8Array, options?: P10ParseOptions): Result
 
     const data: Record<string, DicomJsonElement> = {};
     const stack: WorkUnit[] = [{ src: dataSet, out: data, parentCharset: rootCharset.value }];
+    const mislabel: MislabelState = { promote: options?.utf8MislabelPromote === true, warnings: [], seen: new Set() };
+    const state: ParseState = { littleEndian, options, mislabel };
     let processed = 0;
     while (stack.length > 0) {
         processed++;
@@ -331,12 +375,12 @@ function parseDicomBuffer(buffer: Uint8Array, options?: P10ParseOptions): Result
         const unit = stack.pop();
         /* v8 ignore next -- stack.length > 0 guarantees an entry */
         if (unit === undefined) break;
-        const converted = convertDataset(unit, stack, littleEndian, options);
+        const converted = convertDataset(unit, stack, state);
         if (!converted.ok) {
             return err(converted.error);
         }
     }
-    return ok({ data, warnings: dataSet.warnings });
+    return ok({ data, warnings: [...dataSet.warnings, ...mislabel.warnings] });
 }
 
 export { parseDicomBuffer };

@@ -137,6 +137,29 @@ const CHARSET_ALIASES: Readonly<Record<string, string>> = {
     gbk: 'GBK',
 };
 
+/**
+ * WHATWG labels that decode one byte per character. UTF-8 mislabel detection
+ * only applies under these (plus latin1/ASCII): a multi-byte charset can
+ * legitimately contain byte runs that also form valid UTF-8.
+ */
+const SINGLE_BYTE_LABELS: ReadonlySet<string> = new Set([
+    'iso-8859-2',
+    'iso-8859-3',
+    'iso-8859-4',
+    'iso-8859-5',
+    'iso-8859-6',
+    'iso-8859-7',
+    'iso-8859-8',
+    'iso-8859-9',
+    'iso-8859-15',
+    'windows-874',
+]);
+
+/** True when the decoder maps exactly one byte to one character. */
+function isSingleByteDecoder(decoder: SegmentDecoder): boolean {
+    return decoder.kind === 'latin1' || (decoder.kind === 'label' && SINGLE_BYTE_LABELS.has(decoder.label));
+}
+
 /** Cache of TextDecoder instances by label ('' = construction failed). */
 const decoderCache = new Map<string, TextDecoder | undefined>();
 
@@ -247,10 +270,12 @@ interface CharsetContext {
     readonly iso2022: boolean;
     /** Decoder for non-2022 charsets, or the initial decoder for ISO 2022. */
     readonly initial: SegmentDecoder;
+    /** Whether the context is a single-byte repertoire (UTF-8 mislabel detection applies). */
+    readonly singleByte: boolean;
 }
 
 /** The default context (ISO_IR 6 / ASCII). */
-const DEFAULT_CONTEXT: CharsetContext = { terms: ['ISO_IR 6'], iso2022: false, initial: LATIN1 };
+const DEFAULT_CONTEXT: CharsetContext = { terms: ['ISO_IR 6'], iso2022: false, initial: LATIN1, singleByte: true };
 
 /** Normalizes a user-supplied charset name (alias or defined term) to a defined term, or undefined. */
 function normalizeCharsetName(input: string): string | undefined {
@@ -267,7 +292,7 @@ function buildContext(terms: readonly string[]): CharsetContext | undefined {
     const first = terms[0] ?? 'ISO_IR 6';
     const initial = iso2022 ? ISO2022_INITIAL[first] : CHARSET_DECODERS[first];
     if (initial === undefined) return undefined;
-    return { terms, iso2022, initial };
+    return { terms, iso2022, initial, singleByte: !iso2022 && isSingleByteDecoder(initial) };
 }
 
 /** Parses raw SpecificCharacterSet values into normalized terms. An empty first value means the default repertoire. */
@@ -331,5 +356,49 @@ function decodeDicomText(bytes: Uint8Array, context: CharsetContext): string {
     return decodeSegment(bytes, context.initial);
 }
 
-export { resolveCharsetContext, decodeDicomText, normalizeCharsetName, DEFAULT_CONTEXT };
+/** Strict UTF-8 decoder used only for mislabel detection (throws on invalid sequences). */
+let strictUtf8: TextDecoder | undefined;
+
+/**
+ * Detects a near-certain UTF-8 mislabel: the bytes contain at least one byte
+ * >= 0x80 and the whole run is valid UTF-8. In valid UTF-8 every byte >= 0x80
+ * belongs to a multi-byte sequence, so both conditions together imply at least
+ * one multi-byte character — under a single-byte charset context that text is
+ * almost certainly UTF-8 with a wrong or absent SpecificCharacterSet.
+ *
+ * @param bytes - The raw value bytes
+ * @returns True when the bytes look like mislabeled UTF-8
+ */
+function isProbableUtf8Mislabel(bytes: Uint8Array): boolean {
+    let hasHighByte = false;
+    for (const byte of bytes) {
+        if (byte >= 0x80) {
+            hasHighByte = true;
+            break;
+        }
+    }
+    if (!hasHighByte) return false;
+    strictUtf8 ??= new TextDecoder('utf-8', { fatal: true });
+    try {
+        strictUtf8.decode(bytes);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/** UTF-8 decoder for promoted mislabeled values. */
+const UTF8_DECODER: SegmentDecoder = label('utf-8');
+
+/**
+ * Decodes bytes as UTF-8 (used when promoting a detected mislabel).
+ *
+ * @param bytes - The raw value bytes
+ * @returns The decoded string
+ */
+function decodeUtf8(bytes: Uint8Array): string {
+    return decodeSegment(bytes, UTF8_DECODER);
+}
+
+export { resolveCharsetContext, decodeDicomText, normalizeCharsetName, isProbableUtf8Mislabel, decodeUtf8, DEFAULT_CONTEXT };
 export type { CharsetContext };

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **`dicom2json`: UTF-8 mislabel detection**
+  ([#34](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/34)). Files whose text bytes are
+  valid multi-byte UTF-8 while the resolved character set is a single-byte repertoire (or the
+  ASCII default when SpecificCharacterSet is absent) previously decoded silently as mojibake —
+  where `dcm2json` rejected them with exit 80. The JS engine now pushes a
+  `possible UTF-8 mislabel: <tag>` warning for each affected tag, and the new
+  `utf8MislabelPromote: true` option decodes those values as UTF-8 instead of the declared
+  charset. Available on `dicom2json`, `dicom2jsonFromBuffer`, `DicomInstance.open`
+  (`DicomOpenOptions`), and `DicomReceiver`'s `instanceOpenOptions`.
+- **`DicomInstance.warnings`** ([#34](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/34)).
+  Parser warnings from the JS engine (including mislabel warnings) are now surfaced on the
+  instance instead of being dropped, and are preserved across fluent modifications. Empty for
+  `engine: 'dcmtk'` and `fromDataset()`. `DicomReceiver` consumers can read them in
+  `INSTANCE_RECEIVED` handlers via `data.instance.warnings`.
+
+### Fixed
+
+- `DicomReceiver`'s `instanceOpenOptions` validation rejected the documented `engine` option
+  (`.strict()` schema was missing the key added in rc.2).
+
 ## [1.0.0-rc.2] - 2026-07-22
 
 ### Added

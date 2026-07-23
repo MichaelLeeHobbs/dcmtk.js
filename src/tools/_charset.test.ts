@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveCharsetContext, decodeDicomText, normalizeCharsetName, DEFAULT_CONTEXT } from './_charset';
+import { resolveCharsetContext, decodeDicomText, decodeUtf8, isProbableUtf8Mislabel, normalizeCharsetName, DEFAULT_CONTEXT } from './_charset';
 import type { CharsetContext } from './_charset';
 
 /** Resolves a context or fails the test. */
@@ -74,6 +74,48 @@ describe('resolveCharsetContext', () => {
         const result = resolveCharsetContext('ISO_IR 999', undefined, 'also-bad');
         expect(result.ok).toBe(false);
         if (!result.ok) expect(result.error.message).toContain('also-bad');
+    });
+});
+
+describe('CharsetContext.singleByte', () => {
+    it('is true for the ASCII default and Latin charsets', () => {
+        expect(DEFAULT_CONTEXT.singleByte).toBe(true);
+        expect(ctx(undefined).singleByte).toBe(true);
+        expect(ctx('ISO_IR 100').singleByte).toBe(true);
+        expect(ctx('ISO_IR 144').singleByte).toBe(true);
+        expect(ctx('ISO_IR 166').singleByte).toBe(true);
+    });
+
+    it('is false for multi-byte and ISO 2022 charsets', () => {
+        expect(ctx('ISO_IR 192').singleByte).toBe(false);
+        expect(ctx('GB18030').singleByte).toBe(false);
+        expect(ctx('ISO_IR 13').singleByte).toBe(false);
+        expect(ctx('ISO 2022 IR 6\\ISO 2022 IR 87').singleByte).toBe(false);
+        expect(ctx('ISO 2022 IR 149').singleByte).toBe(false);
+    });
+});
+
+describe('isProbableUtf8Mislabel', () => {
+    it('returns false for pure ASCII and empty input', () => {
+        expect(isProbableUtf8Mislabel(Buffer.from('Smith^John', 'latin1'))).toBe(false);
+        expect(isProbableUtf8Mislabel(Buffer.alloc(0))).toBe(false);
+    });
+
+    it('returns false for Latin-1 high bytes that are not valid UTF-8', () => {
+        expect(isProbableUtf8Mislabel(Buffer.from('M\xfcller^J\xf6rg', 'latin1'))).toBe(false);
+        expect(isProbableUtf8Mislabel(Buffer.from([0x80]))).toBe(false);
+        expect(isProbableUtf8Mislabel(Buffer.from([0xc3]))).toBe(false);
+    });
+
+    it('returns true for UTF-8 bytes with multi-byte sequences', () => {
+        expect(isProbableUtf8Mislabel(Buffer.from('Müller^José', 'utf-8'))).toBe(true);
+        expect(isProbableUtf8Mislabel(Buffer.from('王^小东', 'utf-8'))).toBe(true);
+    });
+});
+
+describe('decodeUtf8', () => {
+    it('decodes UTF-8 bytes', () => {
+        expect(decodeUtf8(Buffer.from('Müller^José', 'utf-8'))).toBe('Müller^José');
     });
 });
 

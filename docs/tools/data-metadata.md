@@ -48,16 +48,26 @@ if (result.ok) {
 const bufferResult = dicom2jsonFromBuffer(buffer, { charsetAssume: 'latin-1' });
 ```
 
-| Option            | Type      | Default | Description                                                                                     |
-| ----------------- | --------- | ------- | ----------------------------------------------------------------------------------------------- |
-| `charsetAssume`   | `string`  | —       | Charset to assume when SpecificCharacterSet (0008,0005) is absent (`'ISO_IR 100'`, `'latin-1'`) |
-| `charsetFallback` | `string`  | —       | Charset to decode with when the file's charset is unsupported (`'latin-1'` recommended)         |
-| `dcmtkFallback`   | `boolean` | `false` | Retry with the deprecated dcm2json binary path when the JS parser fails                         |
+| Option                | Type      | Default | Description                                                                                     |
+| --------------------- | --------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `charsetAssume`       | `string`  | —       | Charset to assume when SpecificCharacterSet (0008,0005) is absent (`'ISO_IR 100'`, `'latin-1'`) |
+| `charsetFallback`     | `string`  | —       | Charset to decode with when the file's charset is unsupported (`'latin-1'` recommended)         |
+| `utf8MislabelPromote` | `boolean` | `false` | Decode values detected as mislabeled UTF-8 as UTF-8 instead of the declared charset             |
+| `dcmtkFallback`       | `boolean` | `false` | Retry with the deprecated dcm2json binary path when the JS parser fails                         |
 
 **Result:** `{ data: DicomJsonModel, warnings: readonly string[], source: 'js' | 'xml' | 'direct' }`
 
 Character sets: all single-byte ISO_IR sets, UTF-8, GB18030/GBK, Shift_JIS, and the common
 ISO 2022 code extensions (Japanese IR 13/87, Korean IR 149, Chinese IR 58) are decoded natively.
+
+**UTF-8 mislabel detection:** when the resolved charset is single-byte (or the ASCII default
+because 0008,0005 is absent) and a value's raw bytes contain a byte ≥ 0x80 while forming valid
+UTF-8, the value is near-certainly mislabeled UTF-8 — the dcm2json binary rejected such files
+with exit 80; the JS decoders cannot fail on byte content. The parser pushes a
+`possible UTF-8 mislabel: <tag>` warning (one per distinct tag) either way; with
+`utf8MislabelPromote: true` those values are decoded as UTF-8 instead of producing mojibake.
+The same options are accepted by `DicomInstance.open` and `DicomReceiver`'s
+`instanceOpenOptions`, and the warnings surface on `DicomInstance.warnings`.
 
 Differences from the dcm2json binary path (both verified against `dcmdump` ground truth):
 

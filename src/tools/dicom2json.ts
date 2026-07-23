@@ -37,12 +37,17 @@ interface Dicom2jsonOptions extends ToolBaseOptions {
     readonly charsetAssume?: string | undefined;
     /** Charset to decode with when the file's specified character set is unsupported. `'latin-1'` recommended — maps every byte to a valid character. */
     readonly charsetFallback?: string | undefined;
+    /**
+     * Decode values detected as mislabeled UTF-8 (high bytes forming valid UTF-8 under a single-byte declared charset)
+     * as UTF-8 instead of the declared charset. A `possible UTF-8 mislabel` warning is pushed either way. Defaults to false.
+     */
+    readonly utf8MislabelPromote?: boolean | undefined;
     /** Retry with the deprecated dcm2json binary path when the JS parser fails. Defaults to false. */
     readonly dcmtkFallback?: boolean | undefined;
 }
 
 /** Options for {@link dicom2jsonFromBuffer} (charset handling only). */
-type Dicom2jsonBufferOptions = Pick<Dicom2jsonOptions, 'charsetAssume' | 'charsetFallback'>;
+type Dicom2jsonBufferOptions = Pick<Dicom2jsonOptions, 'charsetAssume' | 'charsetFallback' | 'utf8MislabelPromote'>;
 
 /** Result of a successful dicom2json conversion. */
 interface Dicom2jsonResult {
@@ -60,6 +65,7 @@ const Dicom2jsonOptionsSchema = z
         signal: z.instanceof(AbortSignal).optional(),
         charsetAssume: z.string().min(1).optional(),
         charsetFallback: z.string().min(1).optional(),
+        utf8MislabelPromote: z.boolean().optional(),
         dcmtkFallback: z.boolean().optional(),
     })
     .strict()
@@ -69,6 +75,7 @@ const Dicom2jsonBufferOptionsSchema = z
     .object({
         charsetAssume: z.string().min(1).optional(),
         charsetFallback: z.string().min(1).optional(),
+        utf8MislabelPromote: z.boolean().optional(),
     })
     .strict()
     .optional();
@@ -148,7 +155,11 @@ async function parseFromFile(inputPath: string, timeoutMs: number, options?: Dic
     if (!fileResult.ok) {
         return err(fileResult.error);
     }
-    const parsed = parseDicomBuffer(fileResult.value, { charsetAssume: options?.charsetAssume, charsetFallback: options?.charsetFallback });
+    const parsed = parseDicomBuffer(fileResult.value, {
+        charsetAssume: options?.charsetAssume,
+        charsetFallback: options?.charsetFallback,
+        utf8MislabelPromote: options?.utf8MislabelPromote,
+    });
     if (!parsed.ok) {
         return err(parsed.error);
     }

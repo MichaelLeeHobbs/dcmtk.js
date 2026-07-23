@@ -30,6 +30,12 @@ interface DicomOpenOptions extends FileIOOptions {
     /** Fallback charset to decode with when the file's character set is unsupported or conversion fails. `'latin-1'` is recommended — it maps every byte 0x00-0xFF to a valid character, so decoding never fails. */
     readonly charsetFallback?: string | undefined;
     /**
+     * Decode values detected as mislabeled UTF-8 (high bytes forming valid UTF-8 under a single-byte declared charset)
+     * as UTF-8 instead of the declared charset. A `possible UTF-8 mislabel` warning is surfaced either way via
+     * `DicomInstance.warnings`. JS engine only. Defaults to false.
+     */
+    readonly utf8MislabelPromote?: boolean | undefined;
+    /**
      * Parse engine. `'js'` (default) parses in-process via {@link dicom2json}
      * and automatically falls back to the DCMTK binaries when the JS parser
      * fails; `'dcmtk'` uses the deprecated dcm2json binary path exclusively.
