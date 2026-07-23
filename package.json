@@ -1,9 +1,10 @@
 {
     "name": "@ubercode/dcmtk",
-    "version": "1.0.0-rc.1",
+    "version": "1.0.0-rc.2",
     "description": "Type-safe Node.js wrapper for DCMTK (DICOM Toolkit) command-line utilities",
     "author": "Michael Lee Hobbs <michael.lee.hobbs@gmail.com> (https://github.com/MichaelLeeHobbs)",
     "license": "MIT",
+    "packageManager": "pnpm@10.33.4",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/MichaelLeeHobbs/dcmtk.js.git"
