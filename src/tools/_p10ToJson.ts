@@ -17,8 +17,8 @@
  */
 
 import { inflateRawSync } from 'node:zlib';
-import dicomParser from 'dicom-parser';
-import type { DataSet, Element } from 'dicom-parser';
+import dicomParser from '@ubercode/dicom-parser/compat';
+import type { DataSet, Element } from '@ubercode/dicom-parser/compat';
 import { stderr } from 'stderr-lib';
 import type { Result } from '../types';
 import { ok, err } from '../types';
@@ -380,7 +380,11 @@ function parseDicomBuffer(buffer: Uint8Array, options?: P10ParseOptions): Result
             return err(converted.error);
         }
     }
-    return ok({ data, warnings: [...dataSet.warnings, ...mislabel.warnings] });
+    // The fork's core carries its own UTF-8 mislabel detection (its C4, ported
+    // from our #34) with 'x'-prefixed lowercase tags. Ours is the documented
+    // format on this API and honors utf8MislabelPromote — drop the duplicates.
+    const tokenizerWarnings = dataSet.warnings.filter(w => !w.startsWith('possible UTF-8 mislabel: x'));
+    return ok({ data, warnings: [...tokenizerWarnings, ...mislabel.warnings] });
 }
 
 export { parseDicomBuffer, implicitVrLookup };

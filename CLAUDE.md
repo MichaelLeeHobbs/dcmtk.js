@@ -80,7 +80,7 @@ All code **shall** comply with `docs/TypeScript Coding Standard for Mission-Crit
 
 51 async functions wrapping DCMTK binaries, organized by category:
 
-- **Data & Metadata** — `dcm2xml`, `dicom2json` (pure-JS, no binary), `dcm2json` (deprecated), `dcmdump`, `dcmconv`, `dcmodify`, `dcmftest`, `dcmgpdir`, `dcmmkdir`, `dcmqridx`
+- **Data & Metadata** — `dcm2xml`, `dicom2json` (pure-JS via @ubercode/dicom-parser, no binary), `dcm2json` (deprecated), `dcmdump`, `dcmconv`, `dcmodify`, `dcmftest`, `dcmgpdir`, `dcmmkdir`, `dcmqridx`
 - **File Conversion** — `xml2dcm`, `json2dcm`, `dump2dcm`, `img2dcm`, `pdf2dcm`, `dcm2pdf`, `cda2dcm`, `dcm2cda`, `stl2dcm`
 - **Compression** — `dcmcrle`, `dcmdrle`, `dcmencap`, `dcmdecap`, `dcmcjpeg`, `dcmdjpeg`, `dcmcjpls`, `dcmdjpls`
 - **Image Processing** — `dcmj2pnm`, `dcm2pnm`, `dcmscale`, `dcmquant`, `dcmdspfn`, `dcod2lum`, `dconvlum`

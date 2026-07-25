@@ -83,9 +83,6 @@ const MAX_OUTPUT_BYTES = 100 * 1024 * 1024;
 /** Files at or below this size are read whole by the bounded reader (8 MB). */
 const BOUNDED_READ_THRESHOLD_BYTES = 8 * 1024 * 1024;
 
-/** Initial and incremental chunk size for the bounded reader (1 MB). */
-const BOUNDED_READ_CHUNK_BYTES = 1024 * 1024;
-
 export {
     DEFAULT_TIMEOUT_MS,
     DEFAULT_START_TIMEOUT_MS,
@@ -102,5 +99,4 @@ export {
     MAX_CHANGESET_OPERATIONS,
     MAX_OUTPUT_BYTES,
     BOUNDED_READ_THRESHOLD_BYTES,
-    BOUNDED_READ_CHUNK_BYTES,
 };

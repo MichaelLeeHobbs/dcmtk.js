@@ -8,7 +8,7 @@ import { parseDicomBuffer } from './_p10ToJson';
 import { TS, evenPad, explicitEl, implicitEl, sqExplicit, encapsulatedPixelData, item, metaGroup, p10, tagBytes } from '../../test/helpers/p10';
 
 /** Forces the bounded path regardless of file size, with small chunks. */
-const FORCE = { timeoutMs: 5_000, thresholdBytes: 0, chunkBytes: 256 } as const;
+const FORCE = { timeoutMs: 5_000, thresholdBytes: 0 } as const;
 
 let tempDir: string;
 let fileCounter = 0;

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Parser engine swapped to `@ubercode/dicom-parser@2.0.0-rc.2`**
+  ([#39](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/39)) — the maintained TypeScript
+  fork of `dicom-parser`, consumed via its v1-compatible `/compat` facade. Verified: zero
+  ok/err flips and zero output diffs across the 201-file corpus (incl. `bad/`) vs rc.3, and
+  the full DCMTK differential passes. User-visible changes:
+    - Explicit-VR `SV`/`UV`/`OV` files now parse natively (former known limitation removed).
+    - Truncated-mid-value files parse with an `unexpected-eof` warning instead of failing;
+      inspect `warnings` where rejection semantics were relied on.
+- **`_boundedRead` rewritten on the fork's `parseHeadAsync`**: bulk-value discovery now runs
+  on the real tokenizer over ranged reads instead of chunk-probe heuristics; dcmtk.js only
+  assembles the synthetic buffer from the reported ranges, with a strict fragment-chain
+  validation (fork [#67](https://github.com/MichaelLeeHobbs/dicomParser/issues/67)) so
+  malformed encapsulated streams still fall back to whole-file behavior. The internal
+  `chunkBytes` tuning knob is gone (the fork manages its own read-ahead).
+
 ## [1.0.0-rc.3] - 2026-07-23
 
 ### Added

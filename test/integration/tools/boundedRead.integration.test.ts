@@ -35,7 +35,7 @@ describe('readDicomHead — differential vs full read (all samples)', () => {
 
     it.each(samples.map(f => [f.slice(SAMPLES_ROOT.length + 1), f]))('%s', async (_label, filePath) => {
         const full = readFileSync(filePath);
-        const bounded = await readDicomHead(filePath, { timeoutMs: 30_000, thresholdBytes: 0, chunkBytes: 4_096 });
+        const bounded = await readDicomHead(filePath, { timeoutMs: 30_000, thresholdBytes: 0 });
         expect(bounded.ok).toBe(true);
         if (!bounded.ok) return;
 
@@ -52,7 +52,7 @@ describe('readDicomHead — differential vs full read (all samples)', () => {
         let boundedTotal = 0;
         let fileTotal = 0;
         for (const filePath of samples) {
-            const bounded = await readDicomHead(filePath, { timeoutMs: 30_000, thresholdBytes: 0, chunkBytes: 4_096 });
+            const bounded = await readDicomHead(filePath, { timeoutMs: 30_000, thresholdBytes: 0 });
             if (bounded.ok) {
                 boundedTotal += bounded.value.length;
                 fileTotal += statSync(filePath).size;
