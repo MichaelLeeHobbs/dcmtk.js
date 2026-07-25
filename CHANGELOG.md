@@ -11,12 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **`getString` no longer truncates multi-valued tags to their first component**
   ([#43](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/43)). Values are now joined with
-  `\` (the DICOM value-multiplicity delimiter): `(0008,0061) CS [OT\CR]` reads as `'OT\CR'`
-  instead of `'OT'`, and an empty first component (`\OT\`) reads as `'\OT\'` instead of
-  colliding with the missing-tag fallback. Long-standing (0.16.1 truncated too); made visible
-  by the rc.3 parser swap. Applies to `DicomDataset.getString`, `DicomInstance.getString`, and
-  PN tags (Alphabetic components joined). Use `getStrings` for the component array or
-  `getFirstValue` for first-only semantics.
+  `\` (the DICOM value-multiplicity delimiter): `(0008,0061) CS [OT\CR]` reads as the
+  5-character string `OT\CR` instead of `OT`, and an empty first component (`\OT\`) reads as
+  `\OT\` instead of colliding with the missing-tag fallback. Values shown in DICOM notation —
+  in a JS string literal the delimiter is escaped (`'OT\\CR'`). Long-standing (0.16.1
+  truncated too); made visible by the rc.3 parser swap. Applies to `DicomDataset.getString`,
+  `DicomInstance.getString`, and PN tags (Alphabetic components joined). Use `getStrings` for
+  primitive components, `getValue` for PN component objects, or `getFirstValue` for
+  first-only semantics.
 
 ## [1.0.0-rc.4] - 2026-07-25
 

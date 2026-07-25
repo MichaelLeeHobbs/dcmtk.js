@@ -117,8 +117,8 @@ function extractString(element: DicomJsonElement): string {
     if (values === undefined || values.length === 0) return '';
 
     // both extractors map null/undefined/foreign shapes to '' themselves
-    const parts = values.map(value => (element.vr === 'PN' ? extractPNAlphabetic(value) : primitiveToString(value)));
-    return parts.join('\\');
+    const toString = element.vr === 'PN' ? extractPNAlphabetic : primitiveToString;
+    return values.map(toString).join('\\');
 }
 
 /** Extracts a number from a DicomJsonElement with validation. */
@@ -402,9 +402,10 @@ class DicomDataset {
      * Gets a tag value as a string with optional fallback.
      *
      * Multi-valued tags are joined with `\` (the DICOM value-multiplicity
-     * delimiter), so `(0008,0061) CS [OT\CR]` reads as `'OT\\CR'` — use
-     * {@link getStrings} for the components or {@link getFirstValue} for just
-     * the first. PN (PersonName) values extract the Alphabetic component.
+     * delimiter), so `(0008,0061) CS [OT\CR]` reads as the 5-character string
+     * `OT\CR`. Use {@link getStrings} for primitive components, {@link getValue}
+     * for PN component objects, or {@link getFirstValue} for just the first.
+     * PN values join their Alphabetic components.
      * Returns the fallback (default empty string) if the tag is missing or
      * has no value.
      *
