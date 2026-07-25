@@ -1,5 +1,9 @@
 /**
- * DICOM tag dictionary with O(1) lookup by tag and lazy reverse lookup by name.
+ * DICOM tag dictionary with lookup by tag and lazy reverse lookup by name.
+ *
+ * Exact tags resolve in O(1) through a hash lookup. A miss then falls through to
+ * the repeating-group ranges — a linear scan of a small fixed list (72 entries),
+ * so lookups for tags outside the dictionary cost that scan.
  *
  * Uses the shipped `src/data/dictionary.json` generated from `_configs/dicom.dic`
  * (DCMTK's data dictionary) by `scripts/generateDictionary.ts`.
