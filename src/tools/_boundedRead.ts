@@ -37,6 +37,7 @@ import { lookupTag } from '../dicom/dictionary';
 
 const TAG_PIXEL_DATA = 0x7fe00010;
 const TS_IMPLICIT_LE = '1.2.840.10008.1.2';
+const TS_DEFLATED_LE = '1.2.840.10008.1.2.1.99';
 
 /** Transfer syntaxes whose pixel data is native (not encapsulated in fragments). */
 const NATIVE_TRANSFER_SYNTAXES: ReadonlySet<string> = new Set(['1.2.840.10008.1.2', '1.2.840.10008.1.2.1', '1.2.840.10008.1.2.2', '1.2.840.10008.1.2.1.99']);
@@ -113,16 +114,23 @@ function coreVrLookup(tag: number): string | undefined {
     return lookupTag(tag.toString(16).padStart(8, '0'))?.vr;
 }
 
-/** Runs the fork's head walk over a file handle. */
-async function discoverHead(handle: FileHandle, fileSize: number): Promise<HeadResult> {
+/** Runs the fork's head walk over a file handle, honoring abort/deadline between reads. */
+async function discoverHead(handle: FileHandle, fileSize: number, guard: Guard): Promise<HeadResult> {
     const reader: RangeReader = {
         size: fileSize,
         read: async (offset: number, length: number): Promise<Uint8Array> => {
+            const abort = checkAbort(guard);
+            /* v8 ignore next 3 -- deterministic tests cannot abort mid-discovery (pre-flight aborts exit earlier) */
+            if (abort !== undefined) {
+                throw abort;
+            }
             const want = Math.min(length, fileSize - offset);
+            /* v8 ignore next 3 -- defensive: the fork's reader never requests past its declared size */
             if (want <= 0) {
                 return new Uint8Array(0);
             }
             const result = await readRange(handle, offset, want);
+            /* v8 ignore next 3 -- read failures require concurrent file mutation */
             if (!result.ok) {
                 throw result.error;
             }
@@ -139,6 +147,13 @@ async function discoverHead(handle: FileHandle, fileSize: number): Promise<HeadR
  */
 function headUsable(head: HeadResult): boolean {
     if (!head.ok || head.error !== undefined || head.bulk.size === 0) {
+        return false;
+    }
+    // Deflated files can't be elided (offsets refer to compressed bytes). The
+    // fork already reads them whole (bulk stays empty, caught above); this
+    // guard makes the exclusion explicit rather than transitive.
+    /* v8 ignore next 3 -- unreachable defense-in-depth: deflated always has an empty bulk map */
+    if (head.transferSyntax === TS_DEFLATED_LE) {
         return false;
     }
     return !head.warnings.some(w => w.code === 'unexpected-eof');
@@ -163,19 +178,38 @@ interface Patch {
  * the 4 bytes before the value. Encapsulated pixel data additionally gets its
  * VR normalized to OB, matching the full parse's fragment handling.
  */
+/** Validates that the sorted ranges are in-bounds and non-overlapping (defensive vs upstream bugs). */
+function rangesWellFormed(ranges: readonly { readonly offset: number; readonly length: number }[], fileSize: number): boolean {
+    let previousEnd = 0;
+    for (const range of ranges) {
+        /* v8 ignore next 3 -- defensive: the fork reports ordered in-bounds ranges */
+        if (range.offset < previousEnd || range.length < 0 || range.offset + range.length > fileSize) {
+            return false;
+        }
+        previousEnd = range.offset + range.length;
+    }
+    return true;
+}
+
 async function assemble(handle: FileHandle, fileSize: number, head: HeadResult, guard: Guard): Promise<Result<Buffer>> {
     const explicitVr = head.transferSyntax !== TS_IMPLICIT_LE;
     const ranges = [...head.bulk.values()].sort((a, b) => a.offset - b.offset);
+    /* v8 ignore next 3 -- defensive: reachable only via a fork range-reporting bug */
+    if (!rangesWellFormed(ranges, fileSize)) {
+        return err(new Error('bulk ranges overlap or exceed the file'));
+    }
     const parts: Buffer[] = [];
     const patches: Patch[] = [];
     let filePos = 0;
     let skipped = 0;
     for (const range of ranges) {
         const abort = checkAbort(guard);
+        /* v8 ignore next 3 -- deterministic tests cannot abort mid-assembly (pre-flight aborts exit earlier) */
         if (abort !== undefined) {
             return err(abort);
         }
         const keep = await readRange(handle, filePos, range.offset - filePos);
+        /* v8 ignore next 3 -- read failures require concurrent file mutation */
         if (!keep.ok) {
             return err(keep.error);
         }
@@ -185,6 +219,7 @@ async function assemble(handle: FileHandle, fileSize: number, head: HeadResult, 
         skipped += range.length;
     }
     const tail = await readRange(handle, filePos, fileSize - filePos);
+    /* v8 ignore next 3 -- read failures require concurrent file mutation */
     if (!tail.ok) {
         return err(tail.error);
     }
@@ -281,11 +316,13 @@ async function readWhole(handle: FileHandle, fileSize: number, guard: Guard): Pr
 }
 
 /** Discovery + safety checks: the head result, or undefined when elision must not be used. */
-async function usableHead(handle: FileHandle, fileSize: number): Promise<HeadResult | undefined> {
+async function usableHead(handle: FileHandle, fileSize: number, guard: Guard): Promise<HeadResult | undefined> {
     let head: HeadResult;
     try {
-        head = await discoverHead(handle, fileSize);
+        head = await discoverHead(handle, fileSize, guard);
     } catch {
+        // abort/timeout surfaces via the caller's next checkAbort; other
+        // failures (unreadable structure) fall back to a whole read
         return undefined;
     }
     if (!headUsable(head) || (await hasDefinedLengthEncapsulation(handle, head)) || !(await encapsulatedRangesValid(handle, head))) {
@@ -306,16 +343,16 @@ async function readWithHandle(handle: FileHandle, options: BoundedReadOptions): 
     if (fileSize <= threshold) {
         return readWhole(handle, fileSize, guard);
     }
-    const head = await usableHead(handle, fileSize);
+    const head = await usableHead(handle, fileSize, guard);
     if (head === undefined) {
         return readWhole(handle, fileSize, guard);
     }
     const assembled = await assemble(handle, fileSize, head, guard);
+    /* v8 ignore next 7 -- assemble fails only on mid-flight abort (race) or concurrent file mutation */
     if (!assembled.ok) {
         if (assembled.error.message.startsWith('aborted') || assembled.error.message.startsWith('timed out')) {
             return err(assembled.error);
         }
-        /* v8 ignore next 2 -- IO failures mid-assembly require concurrent file mutation */
         return readWhole(handle, fileSize, guard);
     }
     return assembled;

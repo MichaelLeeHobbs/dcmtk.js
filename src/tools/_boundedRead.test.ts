@@ -7,7 +7,7 @@ import { readDicomHead } from './_boundedRead';
 import { parseDicomBuffer } from './_p10ToJson';
 import { TS, evenPad, explicitEl, implicitEl, sqExplicit, encapsulatedPixelData, item, metaGroup, p10, tagBytes } from '../../test/helpers/p10';
 
-/** Forces the bounded path regardless of file size, with small chunks. */
+/** Forces the bounded path regardless of file size (thresholdBytes 0). */
 const FORCE = { timeoutMs: 5_000, thresholdBytes: 0 } as const;
 
 let tempDir: string;
@@ -290,6 +290,16 @@ describe('readDicomHead — malformed structures fall back to full reads', () =>
         const head12 = Buffer.concat([explicitEl('7FE00010', 'OB', Buffer.alloc(0)).subarray(0, 8), Buffer.from([0xff, 0xff, 0xff, 0xff])]);
         return Buffer.concat([head12, itemStream]);
     }
+
+    it('falls back for defined-length encapsulated pixel data (item-shaped value in a compressed TS)', async () => {
+        // The full parse scans the item structure of a defined-length pixel
+        // value in a compressed transfer syntax (upstream #59/#60); elision
+        // would hide it, so these files must read whole.
+        const itemStream = Buffer.concat([item(Buffer.alloc(0)), item(Buffer.alloc(9_000, 0xfe))]);
+        const file = p10(TS.jpegBaseline, [explicitEl('00100020', 'LO', evenPad('PAT001')), explicitEl('7FE00010', 'OB', itemStream)]);
+        const assembled = await expectEquivalent(file);
+        expect(assembled.length).toBe(file.length); // whole-file fallback, not elision
+    });
 
     it('falls back when a fragment item overruns the file', async () => {
         const fragmentHeader = Buffer.concat([
