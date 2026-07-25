@@ -265,6 +265,9 @@ class DicomInstance {
     /**
      * Gets a tag value as a string with optional fallback.
      *
+     * Multi-valued tags are joined with `\` (the DICOM value-multiplicity
+     * delimiter); PN values extract the Alphabetic component.
+     *
      * @param tag - A DICOM tag, e.g. `'(0010,0010)'` or `'00100010'`
      * @param fallback - Value to return if tag is missing (default: `''`)
      */
