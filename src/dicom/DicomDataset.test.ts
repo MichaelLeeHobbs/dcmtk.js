@@ -74,6 +74,16 @@ describe('DicomDataset.fromJson', () => {
         expect(result.ok).toBe(true);
     });
 
+    it('rejects a non-hex tag key', () => {
+        const result = DicomDataset.fromJson({ NOTATAG1: { vr: 'LO', Value: ['x'] } });
+        expect(result.ok).toBe(false);
+    });
+
+    it('rejects a non-element value under a valid key', () => {
+        const result = DicomDataset.fromJson({ '00100020': 'not an element' });
+        expect(result.ok).toBe(false);
+    });
+
     it('rejects null', () => {
         const result = DicomDataset.fromJson(null);
         expect(result.ok).toBe(false);
@@ -252,6 +262,13 @@ describe('DicomDataset.getString', () => {
         const r = DicomDataset.fromJson({ '00100020': { vr: 'LO', Value: [null] } });
         if (!r.ok) return;
         expect(r.value.getString('00100020', 'fallback')).toBe('fallback');
+    });
+
+    it('returns the fallback for a PN value that is not a component object', () => {
+        const r = DicomDataset.fromJson({ '00100010': { vr: 'PN', Value: ['plain string'] } });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.getString('00100010', 'fallback')).toBe('fallback');
     });
 
     it('joins multi-valued tags with backslash (#43)', () => {
@@ -530,6 +547,11 @@ describe('DicomDataset.findValues', () => {
 
     it('returns empty array for non-existent tag in wildcard path', () => {
         const values = ds.findValues('(0008,1115)[*].(9999,9999)' as DicomTagPath);
+        expect(values).toEqual([]);
+    });
+
+    it('returns empty array for an out-of-range item index', () => {
+        const values = ds.findValues('(0008,1115)[9].(0020,000E)' as DicomTagPath);
         expect(values).toEqual([]);
     });
 
