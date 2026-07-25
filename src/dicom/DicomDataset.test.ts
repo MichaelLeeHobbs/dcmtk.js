@@ -254,6 +254,41 @@ describe('DicomDataset.getString', () => {
         expect(r.value.getString('00100020', 'fallback')).toBe('fallback');
     });
 
+    it('joins multi-valued tags with backslash (#43)', () => {
+        const r = DicomDataset.fromJson({ '00080061': { vr: 'CS', Value: ['OT', 'CR'] } });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.getString('00080061')).toBe('OT\\CR');
+    });
+
+    it('preserves empty components so present tags never read as missing (#43)', () => {
+        const r = DicomDataset.fromJson({ '00080061': { vr: 'CS', Value: ['', 'OT', ''] } });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.getString('00080061', 'MISSING')).toBe('\\OT\\');
+    });
+
+    it('joins multi-valued PN tags by Alphabetic component (#43)', () => {
+        const r = DicomDataset.fromJson({ '00081060': { vr: 'PN', Value: [{ Alphabetic: 'Doe^Jane' }, { Alphabetic: 'Roe^Richard' }] } });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.getString('00081060')).toBe('Doe^Jane\\Roe^Richard');
+    });
+
+    it('joins multi-valued numeric tags (#43)', () => {
+        const r = DicomDataset.fromJson({ '00201041': { vr: 'DS', Value: [-12.5, 3.25] } });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.getString('00201041')).toBe('-12.5\\3.25');
+    });
+
+    it('null components join as empty, still distinguishable from missing (#43)', () => {
+        const r = DicomDataset.fromJson({ '00080061': { vr: 'CS', Value: [null, 'OT'] } });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.getString('00080061', 'MISSING')).toBe('\\OT');
+    });
+
     it('handles PN without Alphabetic component', () => {
         const r = DicomDataset.fromJson({ '00100010': { vr: 'PN', Value: [{ Ideographic: 'Test' }] } });
         if (!r.ok) return;

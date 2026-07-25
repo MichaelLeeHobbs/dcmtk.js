@@ -104,16 +104,21 @@ function primitiveToString(value: unknown): string {
     return '';
 }
 
-/** Extracts a string from a DicomJsonElement, handling PN values. */
+/**
+ * Extracts a string from a DicomJsonElement, handling PN values.
+ *
+ * Multi-valued elements join with `\` — the DICOM value-multiplicity
+ * delimiter, matching the on-disk encoding and dcmdump's rendering — so no
+ * component is silently dropped and an empty first component (`\OT\`) stays
+ * distinguishable from a missing tag (#43).
+ */
 function extractString(element: DicomJsonElement): string {
     const values = element.Value;
     if (values === undefined || values.length === 0) return '';
 
-    const first = values[0];
-    if (first === undefined || first === null) return '';
-
-    if (element.vr === 'PN') return extractPNAlphabetic(first);
-    return primitiveToString(first);
+    // both extractors map null/undefined/foreign shapes to '' themselves
+    const parts = values.map(value => (element.vr === 'PN' ? extractPNAlphabetic(value) : primitiveToString(value)));
+    return parts.join('\\');
 }
 
 /** Extracts a number from a DicomJsonElement with validation. */
@@ -396,8 +401,12 @@ class DicomDataset {
     /**
      * Gets a tag value as a string with optional fallback.
      *
-     * Returns the fallback (default empty string) if the tag is missing or has no value.
-     * Handles PN (PersonName) values by extracting the Alphabetic component.
+     * Multi-valued tags are joined with `\` (the DICOM value-multiplicity
+     * delimiter), so `(0008,0061) CS [OT\CR]` reads as `'OT\\CR'` — use
+     * {@link getStrings} for the components or {@link getFirstValue} for just
+     * the first. PN (PersonName) values extract the Alphabetic component.
+     * Returns the fallback (default empty string) if the tag is missing or
+     * has no value.
      *
      * @param tag - A DicomTag `(0010,0010)` or hex string `00100010`
      * @param fallback - Value to return if tag is missing (default: `''`)
