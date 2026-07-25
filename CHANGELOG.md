@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
     - Explicit-VR `SV`/`UV`/`OV` files now parse natively (former known limitation removed).
     - Truncated-mid-value files parse with an `unexpected-eof` warning instead of failing;
       inspect `warnings` where rejection semantics were relied on.
+- **`@ubercode/dicom-parser` bumped to `2.0.0-rc.3`**: the fork's fragment hop is now a
+  strict recognizer (fork [#67](https://github.com/MichaelLeeHobbs/dicomParser/issues/67)
+  fixed), so head/full identity holds upstream by construction; dcmtk.js's own
+  fragment-chain validation stays as defense-in-depth against regressions.
 - **`_boundedRead` rewritten on the fork's `parseHeadAsync`**: bulk-value discovery now runs
   on the real tokenizer over ranged reads instead of chunk-probe heuristics; dcmtk.js only
   assembles the synthetic buffer from the reported ranges, with a strict fragment-chain

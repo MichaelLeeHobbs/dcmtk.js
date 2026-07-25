@@ -165,7 +165,7 @@
         ]
     },
     "dependencies": {
-        "@ubercode/dicom-parser": "2.0.0-rc.2",
+        "@ubercode/dicom-parser": "2.0.0-rc.3",
         "fast-xml-parser": "5.8.0",
         "stderr-lib": "2.2.0",
         "tree-kill": "1.2.2",
