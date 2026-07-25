@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`lookupTag` now resolves repeating groups**
+  ([#47](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/47)). Overlay `(60xx,eeee)`,
+  curve `(50xx,eeee)`, and retired variable-pixel-data `(7Fxx,eeee)` tags were stored once
+  under the `60FF`/`50FF`/`7FFF` upper bound of their range and looked up by exact key, so
+  every tag that actually appears in a file — `(6000,0010)` OverlayRows, `(6000,3000)`
+  OverlayData, `(6002,...)` for a second overlay plane — returned `undefined`. Ranges are
+  now stored with their bounds and matched on lookup. Odd groups in those ranges stay
+  unknown: they are private by definition (PS3.5 §7.8.1). The element range
+  `(0020,3100-31FF)` RETIRED_SourceImageIDs resolves the same way.
+
+    Beyond keyword lookups this backs implicit-VR resolution, so an **implicit VR** file
+    carrying overlays — common in older CR/DX and RT objects — now yields `US`/`OW` instead
+    of falling back to `UN`.
+
+    `lookupTagByName`/`lookupTagByKeyword` report a repeating group at the first tag it
+    covers (`OverlayRows` → `(6000,0010)`, previously `(60FF,0010)`).
+
+### Changed
+
+- **Tag dictionary refreshed from upstream DCMTK** (PS3.6-2026c, generated 2026-06-21),
+  adding 443 tags — `AcquisitionUID`, `PyramidUID`, the inventory attributes, and other
+  recent additions. The dictionary source (`dcmdata/data/dicom.dic`) is now vendored in the
+  repository and parsed directly by `scripts/generateDictionary.ts`, so regenerating is a
+  file drop plus one command instead of depending on a local, untracked pre-parsed copy.
+
 ## [1.0.0-rc.5] - 2026-07-25
 
 ### Fixed

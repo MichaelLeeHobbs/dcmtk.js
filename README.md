@@ -140,3 +140,7 @@ if (result.ok) {
 ## License
 
 [MIT](LICENSE) - Michael Hobbs
+
+The bundled DICOM data dictionary (`src/data/dictionary.json`) is generated from DCMTK's
+`dcmdata/data/dicom.dic`, vendored at `_configs/dicom.dic` with its original OFFIS e.V.
+copyright notice intact and redistributed under the [DCMTK license](https://github.com/DCMTK/dcmtk/blob/master/COPYRIGHT).
