@@ -83,8 +83,10 @@ Differences from the dcm2json binary path (both verified against `dcmdump` groun
 
 - File meta group 0002 elements are **included**, so `DicomDataset.transferSyntaxUID` works.
 - Private tags keep their real block numbers (dcm2xml renumbers private blocks incorrectly).
-- Known limitation: files using **explicit VR** `SV`/`UV`/`OV` (rare, 2019-era VRs) fail to
-  tokenize — enable `dcmtkFallback` to cover them. Implicit VR files are unaffected.
+- Explicit-VR `SV`/`UV`/`OV` files (rare, 2019-era VRs) parse natively — a former
+  `dicom-parser@1.8` limitation fixed by the `@ubercode/dicom-parser` engine.
+- Truncated files (a value cut off mid-stream) parse with an `unexpected-eof` warning
+  instead of failing — inspect `warnings` if rejection semantics are needed.
 
 ---
 

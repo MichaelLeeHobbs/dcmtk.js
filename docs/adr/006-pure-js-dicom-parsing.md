@@ -77,3 +77,23 @@ non-PixelData) grows the buffer or falls back to a full read, so behavior — in
 behavior on corrupt files — is byte-identical to the full path. Verified by a forced-bounded
 differential suite over all 198 samples (data + warnings equality; 98.4% fewer bytes read) plus
 alignment-sweep unit tests that walk element headers across chunk boundaries.
+
+## Addendum: engine swap to @ubercode/dicom-parser (2026-07-24, [#39](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/39))
+
+`dicom-parser@1.8.21` is replaced by `@ubercode/dicom-parser@2.0.0-rc.2` — the maintained
+TypeScript fork ([MichaelLeeHobbs/dicomParser](https://github.com/MichaelLeeHobbs/dicomParser)).
+`_p10ToJson` consumes its `/compat` facade (the v1 surface), so the converter is unchanged;
+`_boundedRead` was rewritten on the fork's `parseHeadAsync` core API: bulk-range discovery now
+runs on the real tokenizer over ranged reads, and this module only assembles the synthetic
+zero-length-header buffer from the reported ranges (plus a strict fragment-chain validation,
+fork #67). The chunk-probe heuristics of the original implementation are gone.
+
+Behavior changes, all verified against the 201-file corpus (zero ok/err flips, zero output
+diffs) and the DCMTK differential:
+
+- Explicit-VR `SV`/`UV`/`OV` files now parse natively (the old known limitation).
+- Truncated-mid-value files parse with an `unexpected-eof` warning instead of failing (the
+  fork's salvage-and-warn posture; none of the corpus `bad/` files flip, since they fail at
+  the header level in both engines).
+- The fork core carries its own UTF-8 mislabel detection (ported from #34); `_p10ToJson`
+  filters those duplicates and keeps this library's documented warning format.

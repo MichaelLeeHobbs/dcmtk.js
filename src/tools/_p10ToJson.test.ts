@@ -132,11 +132,11 @@ describe('parseDicomBuffer — binary numeric VRs', () => {
         expect(data['00720083']).toEqual({ vr: 'UV', Value: [42] });
     });
 
-    it('fails gracefully on explicit-VR SV values (known dicom-parser limitation)', () => {
+    it('parses explicit-VR SV values (fixed by @ubercode/dicom-parser — was a dicom-parser@1.8 limitation)', () => {
         const sv = Buffer.alloc(8);
         sv.writeBigInt64LE(-42n, 0);
-        const result = parseDicomBuffer(p10(TS.explicitLE, [explicitEl('00720082', 'SV', sv)]));
-        expect(result.ok).toBe(false);
+        const data = parse(p10(TS.explicitLE, [explicitEl('00720082', 'SV', sv)]));
+        expect(data['00720082']).toEqual({ vr: 'SV', Value: [-42] });
     });
 
     it('parses AT values as GGGGEEEE strings', () => {

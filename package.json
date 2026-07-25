@@ -102,7 +102,7 @@
         "LICENSE"
     ],
     "engines": {
-        "node": ">=20"
+        "node": ">=20.16"
     },
     "publishConfig": {
         "access": "public"
@@ -165,7 +165,7 @@
         ]
     },
     "dependencies": {
-        "dicom-parser": "1.8.21",
+        "@ubercode/dicom-parser": "2.0.0-rc.2",
         "fast-xml-parser": "5.8.0",
         "stderr-lib": "2.2.0",
         "tree-kill": "1.2.2",
