@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0-rc.4] - 2026-07-25
+
 ### Changed
 
 - **Parser engine swapped to `@ubercode/dicom-parser` (2.0.0-rc.2, since bumped to 2.0.0-rc.3)**
