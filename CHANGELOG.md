@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0-rc.5] - 2026-07-25
+
 ### Fixed
 
 - **`getString` no longer truncates multi-valued tags to their first component**
