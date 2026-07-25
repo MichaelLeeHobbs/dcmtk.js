@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0-rc.6] - 2026-07-25
+
 ### Fixed
 
 - **`lookupTag` now resolves repeating groups**
