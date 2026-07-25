@@ -4,3 +4,6 @@ node_modules
 pnpm-lock.yaml
 *.tgz
 _configs
+
+# Generated data artifact — formatted by scripts/generateDictionary.ts
+src/data/dictionary.json

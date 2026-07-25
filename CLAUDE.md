@@ -126,7 +126,7 @@ Both senders extend `EventEmitter` directly (not DcmtkProcess) — they manage s
 - `ChangeSet` — Immutable builder for tag modifications and erasures
 - `DicomInstance` — Unified DICOM object with fluent API (open, modify, write)
 - `vr.ts` — 34 standard DICOM Value Representations
-- `dictionary.ts` — 4,902-entry DICOM tag dictionary
+- `dictionary.ts` — DICOM tag dictionary: 5,273 exact tags + 72 repeating-group ranges (overlays `(60xx,eeee)`, curves, variable pixel data)
 - `tagPath.ts` — Tag path parsing and segment utilities
 - `xmlToJson.ts` — Re-export of XML-to-JSON conversion
 
@@ -156,15 +156,15 @@ Both senders extend `EventEmitter` directly (not DcmtkProcess) — they manage s
 
 ## Key Files
 
-| File                                                              | Purpose                                                           |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `PLAN.md`                                                         | Full multi-phase build plan                                       |
-| `docs/TypeScript Coding Standard for Mission-Critical Systems.md` | Governing coding standard                                         |
-| `docs/adr/`                                                       | Architecture Decision Records                                     |
-| `_configs/`                                                       | DCMTK config files (source for dictionary generation)             |
-| `src/data/`                                                       | Shipped data files (dictionary.json, sopClasses.ts, storescp.cfg) |
-| `scripts/`                                                        | Generation scripts (generateDictionary.ts)                        |
-| `dicomSamples/`                                                   | Sample .dcm files for integration tests                           |
+| File                                                              | Purpose                                                                 |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `PLAN.md`                                                         | Full multi-phase build plan                                             |
+| `docs/TypeScript Coding Standard for Mission-Critical Systems.md` | Governing coding standard                                               |
+| `docs/adr/`                                                       | Architecture Decision Records                                           |
+| `_configs/dicom.dic`                                              | DCMTK data dictionary, vendored upstream (dictionary generation source) |
+| `src/data/`                                                       | Shipped data files (dictionary.json, sopClasses.ts, storescp.cfg)       |
+| `scripts/`                                                        | Generation scripts (generateDictionary.ts)                              |
+| `dicomSamples/`                                                   | Sample .dcm files for integration tests                                 |
 
 ## API Reference
 

@@ -140,3 +140,7 @@ if (result.ok) {
 ## License
 
 [MIT](LICENSE) - Michael Hobbs
+
+The bundled DICOM data dictionary is generated from DCMTK's `dcmdata/data/dicom.dic`,
+which is copyright OFFIS e.V. and redistributed under a 3-clause BSD license. The full
+notice is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

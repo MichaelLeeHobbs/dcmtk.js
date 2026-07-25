@@ -260,10 +260,30 @@ if (writeResult.ok) {
 ```typescript
 import { lookupTag, lookupTagByName, lookupTagByKeyword } from '@ubercode/dcmtk';
 
-lookupTag('00100010'); // { name: 'Patient\'s Name', keyword: 'PatientName', vr: 'PN' }
-lookupTagByName("Patient's Name"); // { tag: '00100010', ... }
-lookupTagByKeyword('PatientName'); // { tag: '00100010', ... }
+lookupTag('00100010'); // { vr: 'PN', name: 'PatientName', vm: [1, 1], retired: false }
+lookupTag('(0010,0010)'); // same — parenthesized tags are accepted
+lookupTagByName('PatientName'); // { tag: '00100010', entry: { vr: 'PN', ... } }
+lookupTagByKeyword('PatientName'); // '(0010,0010)'
 ```
+
+The dictionary is generated from DCMTK's `dicom.dic` (PS3.6 plus the DICONDE and
+DICOS supplements) by `scripts/generateDictionary.ts`.
+
+**Repeating groups.** Overlays `(60xx,eeee)`, curves `(50xx,eeee)`, and the retired
+variable pixel data groups `(7Fxx,eeee)` are defined once for a whole family of
+tags, so lookups resolve through the range rather than requiring an exact key:
+
+```typescript
+lookupTag('60000010'); // { vr: 'US', name: 'OverlayRows', ... }
+lookupTag('60023000'); // { vr: 'OW', name: 'OverlayData', ... } — second overlay plane
+lookupTag('60010010'); // undefined — odd groups are private (PS3.5 §7.8.1)
+
+lookupTagByKeyword('OverlayRows'); // '(6000,0010)' — reported at the first tag it covers
+```
+
+This matters beyond keyword display: `lookupTag` backs implicit-VR resolution when
+parsing DICOM, so an implicit-VR file carrying overlays gets `US`/`OW` rather than
+falling back to `UN`.
 
 ### SOP Class Mappings
 

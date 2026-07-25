@@ -99,6 +99,7 @@
     "files": [
         "dist",
         "README.md",
+        "THIRD-PARTY-NOTICES.md",
         "LICENSE"
     ],
     "engines": {

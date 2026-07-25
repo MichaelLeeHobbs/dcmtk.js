@@ -231,6 +231,17 @@ describe('parseDicomBuffer — transfer syntaxes', () => {
         expect(data['00990001']).toEqual({ vr: 'UN' });
     });
 
+    it('resolves implicit VR for repeating overlay groups from the dictionary', () => {
+        const rows = Buffer.alloc(2);
+        rows.writeUInt16LE(512, 0);
+        const overlayBits = Buffer.from([0x0f, 0xf0]);
+        const data = parse(p10(TS.implicitLE, [implicitEl('60020010', rows), implicitEl('60023000', overlayBits)]));
+        // (60xx,0010) OverlayRows is US and (60xx,3000) OverlayData is OW — both
+        // reached through the repeating-group range, not an exact dictionary hit.
+        expect(data['60020010']).toEqual({ vr: 'US', Value: [512] });
+        expect(data['60023000']?.vr).toBe('OW');
+    });
+
     it('parses explicit VR big endian', () => {
         const us = Buffer.alloc(2);
         us.writeUInt16BE(256, 0);
