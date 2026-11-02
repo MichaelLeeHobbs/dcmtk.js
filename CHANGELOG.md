@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0-rc.7] - 2026-11-02
+
+### Security
+
+- **`zod` 4.3.6 → 4.6.7** (runtime dependency), patching
+  [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) / CVE-2023-54404.
+  `pnpm audit --prod` is clean.
+- Dev tooling updated for its own advisories (not shipped in the package): `vitest` and
+  `@vitest/coverage-v8` 4.0.18 → 4.1.12 (CVE-2026-47429 and mocker CVEs), `eslint` 10.0.2 →
+  10.14.0, `lint-staged` 16.3.1 → 16.4.0, and a `vite` `^7.3.7` override.
+
 ## [1.0.0-rc.6] - 2026-07-25
 
 ### Fixed
