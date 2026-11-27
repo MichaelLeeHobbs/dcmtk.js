@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0-rc.8] - 2026-11-27
+
 ### Fixed
 
 - **`DicomReceiver.stop()` no longer deletes files dcmrecv already acknowledged**
