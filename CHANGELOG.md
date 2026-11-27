@@ -37,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - `DicomReceiver` option `stopTimeoutMs` (default `60000`).
 
+### Security
+
+- **`fast-xml-parser` 5.8.0 → 5.12.1** (runtime dependency), patching
+  [GHSA-474x-hrwr-fgx4](https://github.com/advisories/GHSA-474x-hrwr-fgx4) (low: quadratic CPU
+  scanning unterminated stop-node tags). `pnpm audit --prod` is clean.
+
 ## [1.0.0-rc.7] - 2026-11-02
 
 ### Security
