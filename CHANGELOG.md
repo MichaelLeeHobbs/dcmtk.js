@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`DicomReceiver.stop()` no longer deletes files dcmrecv already acknowledged**
+  ([#53](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/53)). `stop()` removed each
+  worker's temp folder right after killing dcmrecv, so a file whose `Stored received object`
+  line had not yet been parsed, or whose move was still running, was deleted after the sender
+  got a success response. `stop()` now aborts open associations, waits for dcmrecv to exit and
+  for all its output to be parsed, drains every move and parse (including ones that start
+  during the drain), hands over any file still in the temp folder that dcmrecv never reported,
+  finalizes cut associations with `endReason: 'abort'`, and only then removes the folder.
+- **`DicomReceiver.stop()` no longer resolves before slow files are parsed**
+  ([#53 comment](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/53#issuecomment-7222635587)).
+  The drain raced a fixed 5 s timer, so a large multi-frame or a slow disk let `stop()` resolve
+  before `INSTANCE_RECEIVED` fired for an acknowledged file. The wait is now the new
+  `stopTimeoutMs` option (default 60 s). Any file still in flight when it expires gets an
+  `error` event with its `filePath`, and the worker's temp folder is kept, so a give-up is
+  never silent.
+- **`DicomReceiver.stop()` now cuts open associations instead of waiting for them.** It
+  awaited the TCP proxy's `close()`, which Node resolves only when every open connection has
+  ended, so `stop()` blocked until each sender finished on its own. Senders mid-association
+  now see an abort. dcmrecv gets up to 2 s to handle the abort (it deletes a half-received
+  file itself) before it is killed; if it does not confirm, leftover files are reported by
+  name and kept, not handed over. See [Stopping](docs/servers.md#stopping).
+- Workers being scaled down no longer receive new connections, and a worker that finishes
+  starting during `stop()` is stopped instead of left running.
+
+### Added
+
+- `DicomReceiver` option `stopTimeoutMs` (default `60000`).
+
+### Security
+
+- **`fast-xml-parser` 5.8.0 → 5.12.1** (runtime dependency), patching
+  [GHSA-474x-hrwr-fgx4](https://github.com/advisories/GHSA-474x-hrwr-fgx4) (low: quadratic CPU
+  scanning unterminated stop-node tags). `pnpm audit --prod` is clean.
+
 ## [1.0.0-rc.7] - 2026-11-02
 
 ### Security

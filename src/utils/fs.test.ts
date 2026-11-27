@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ensureDirectory, moveFile, statFileSafe, removeDirSafe } from './fs';
+import { join } from 'node:path';
+import { ensureDirectory, moveFile, statFileSafe, removeDirSafe, listDirSafe } from './fs';
 
 vi.mock('node:fs/promises', () => ({
     mkdir: vi.fn(),
@@ -8,9 +9,10 @@ vi.mock('node:fs/promises', () => ({
     unlink: vi.fn(),
     stat: vi.fn(),
     rm: vi.fn(),
+    readdir: vi.fn(),
 }));
 
-import { mkdir, rename, copyFile, unlink, stat, rm } from 'node:fs/promises';
+import { mkdir, rename, copyFile, unlink, stat, rm, readdir } from 'node:fs/promises';
 import type { Stats } from 'node:fs';
 
 const mockedMkdir = vi.mocked(mkdir);
@@ -19,6 +21,7 @@ const mockedCopyFile = vi.mocked(copyFile);
 const mockedUnlink = vi.mocked(unlink);
 const mockedStat = vi.mocked(stat);
 const mockedRm = vi.mocked(rm);
+const mockedReaddir = vi.mocked(readdir) as unknown as ReturnType<typeof vi.fn<(dir: string) => Promise<string[]>>>;
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -93,5 +96,33 @@ describe('removeDirSafe', () => {
     it('swallows errors silently', async () => {
         mockedRm.mockRejectedValue(new Error('ENOENT'));
         await expect(removeDirSafe('/nonexistent')).resolves.toBeUndefined();
+    });
+});
+
+describe('listDirSafe', () => {
+    it('returns full paths of the entries', async () => {
+        mockedReaddir.mockResolvedValue(['a.dcm', 'b.dcm']);
+        const result = await listDirSafe('/tmp/pool');
+        expect(result).toEqual({ ok: true, value: [join('/tmp/pool', 'a.dcm'), join('/tmp/pool', 'b.dcm')] });
+    });
+
+    it('treats a missing directory as empty', async () => {
+        mockedReaddir.mockRejectedValue(Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT' }));
+        const result = await listDirSafe('/tmp/gone');
+        expect(result).toEqual({ ok: true, value: [] });
+    });
+
+    it('returns an error when the directory cannot be read', async () => {
+        mockedReaddir.mockRejectedValue(Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }));
+        const result = await listDirSafe('/tmp/locked');
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error.message).toContain('EACCES');
+    });
+
+    it('returns an error when readdir throws a non-Error', async () => {
+        mockedReaddir.mockRejectedValue('boom');
+        const result = await listDirSafe('/tmp/odd');
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error.message).toContain('boom');
     });
 });

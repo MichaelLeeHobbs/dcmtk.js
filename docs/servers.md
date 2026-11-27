@@ -97,25 +97,26 @@ Remote SCU ──TCP──► DicomReceiver (:4242)
 
 ### Options
 
-| Option                | Type                | Default                         | Description                                                                     |
-| --------------------- | ------------------- | ------------------------------- | ------------------------------------------------------------------------------- |
-| `port`                | `number`            | —                               | **Required.** External listening port (0 = no TCP proxy, use `handleSocket()`)  |
-| `storageDir`          | `string`            | —                               | **Required.** Root dir for association dirs                                     |
-| `aeTitle`             | `string`            | `'DCMRECV'`                     | AE Title for workers                                                            |
-| `minPoolSize`         | `number`            | `2`                             | Minimum idle workers to maintain                                                |
-| `maxPoolSize`         | `number`            | `10`                            | Maximum total workers                                                           |
-| `connectionTimeoutMs` | `number`            | `10000`                         | Timeout waiting for idle worker                                                 |
-| `configFile`          | `string`            | —                               | Config file passed to dcmrecv workers                                           |
-| `configProfile`       | `string`            | —                               | Config profile name                                                             |
-| `acseTimeout`         | `number`            | —                               | ACSE timeout in seconds (passed to workers)                                     |
-| `dimseTimeout`        | `number`            | —                               | DIMSE timeout in seconds (passed to workers)                                    |
-| `maxPdu`              | `number`            | —                               | Maximum PDU receive size (4096–131072)                                          |
-| `filenameMode`        | `FilenameModeValue` | **`'unique'`**                  | Filename generation mode (see note below)                                       |
-| `filenameExtension`   | `string`            | —                               | Extension appended to received filenames (e.g., `'.dcm'`)                       |
-| `storageMode`         | `StorageModeValue`  | `'normal'`                      | Storage mode for received files                                                 |
-| `instanceOpenOptions` | `DicomOpenOptions`  | `{ charsetFallback: 'Latin1' }` | Options passed to `DicomInstance.open()` for each received file                 |
-| `parseInstances`      | `boolean`           | `true`                          | Parse files into DicomInstance. When false, no INSTANCE_RECEIVED/INSTANCE_ERROR |
-| `signal`              | `AbortSignal`       | —                               | External cancellation                                                           |
+| Option                | Type                | Default                         | Description                                                                      |
+| --------------------- | ------------------- | ------------------------------- | -------------------------------------------------------------------------------- |
+| `port`                | `number`            | —                               | **Required.** External listening port (0 = no TCP proxy, use `handleSocket()`)   |
+| `storageDir`          | `string`            | —                               | **Required.** Root dir for association dirs                                      |
+| `aeTitle`             | `string`            | `'DCMRECV'`                     | AE Title for workers                                                             |
+| `minPoolSize`         | `number`            | `2`                             | Minimum idle workers to maintain                                                 |
+| `maxPoolSize`         | `number`            | `10`                            | Maximum total workers                                                            |
+| `connectionTimeoutMs` | `number`            | `10000`                         | Timeout waiting for idle worker                                                  |
+| `stopTimeoutMs`       | `number`            | `60000`                         | How long `stop()` waits for received files to be moved and parsed (see Stopping) |
+| `configFile`          | `string`            | —                               | Config file passed to dcmrecv workers                                            |
+| `configProfile`       | `string`            | —                               | Config profile name                                                              |
+| `acseTimeout`         | `number`            | —                               | ACSE timeout in seconds (passed to workers)                                      |
+| `dimseTimeout`        | `number`            | —                               | DIMSE timeout in seconds (passed to workers)                                     |
+| `maxPdu`              | `number`            | —                               | Maximum PDU receive size (4096–131072)                                           |
+| `filenameMode`        | `FilenameModeValue` | **`'unique'`**                  | Filename generation mode (see note below)                                        |
+| `filenameExtension`   | `string`            | —                               | Extension appended to received filenames (e.g., `'.dcm'`)                        |
+| `storageMode`         | `StorageModeValue`  | `'normal'`                      | Storage mode for received files                                                  |
+| `instanceOpenOptions` | `DicomOpenOptions`  | `{ charsetFallback: 'Latin1' }` | Options passed to `DicomInstance.open()` for each received file                  |
+| `parseInstances`      | `boolean`           | `true`                          | Parse files into DicomInstance. When false, no INSTANCE_RECEIVED/INSTANCE_ERROR  |
+| `signal`              | `AbortSignal`       | —                               | External cancellation                                                            |
 
 > **Why `filenameMode` defaults to `'unique'`**: dcmrecv's default mode names files by SOP Instance UID. When a remote SCU sends duplicate SOP Instance UIDs within an association (retransmits, protocol quirks), the second store overwrites the first file on disk while concurrent `handleFileReceived` handlers race on the same path. This causes silent data loss — files that dcmrecv successfully received are never delivered to the application. The `'unique'` mode generates a fresh UID-based filename for every C-STORE, eliminating the overwrite race entirely without modifying any DICOM data inside the files. **It is strongly recommended to keep this default.** Override to `'default'` only if your workflow specifically requires SOP UID-based filenames and your sender never retransmits.
 
@@ -141,6 +142,33 @@ Remote SCU ──TCP──► DicomReceiver (:4242)
 - After an association completes, the worker returns to the idle pool — no restart needed
 - Scale-up: after routing a connection, if idle < `minPoolSize` and total < `maxPoolSize`, new workers are spawned
 - Scale-down: after a worker becomes idle, if idle > `minPoolSize + 2`, excess workers are stopped
+
+### Stopping
+
+`stop()` does not wait for senders to finish. It aborts every open association, gives each dcmrecv
+up to 2 seconds to see the abort (it then deletes any half-received file itself), lets it exit, and
+waits up to `stopTimeoutMs` (default 60 s) for every received file to be moved and parsed.
+
+**The rule to rely on:** when `stop()` resolves, every file dcmrecv stored has produced
+`FILE_STORED` and, when parsing is on, `INSTANCE_RECEIVED` or `INSTANCE_ERROR`, or an `error` event
+whose `filePath` names it. Each cut association gets `ASSOCIATION_FINALIZED` with
+`endReason: 'abort'`.
+
+- A file still in a worker's temp folder that dcmrecv never reported (it was killed before its last
+  output line reached Node) is handed over like any other, with the association's AE titles from
+  `ASSOCIATION_RECEIVED`. It may arrive after that association's `ASSOCIATION_FINALIZED`.
+- If dcmrecv did not confirm the abort, leftover files may be incomplete: they are **not** handed
+  over. Each gets an `error` with its `filePath`, and the temp folder is kept.
+- If handling outlasts `stopTimeoutMs`, each file still in flight gets an `error` with its
+  `filePath` (its events may still come late, or never), the temp folder is kept, and the
+  association may get no `ASSOCIATION_FINALIZED`.
+- A file whose move out of the temp folder fails also gets an `error` naming it, and the folder is
+  kept.
+
+A file in flight when the association is cut may never have been acknowledged to the sender, so
+the sender can resend it: expect an occasional duplicate, never a silent loss. Scale-down stops
+only idle workers and never hands files over; anything it finds in a temp folder is reported the
+same way.
 
 ### File Storage
 

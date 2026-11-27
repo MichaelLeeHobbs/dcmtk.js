@@ -4,7 +4,8 @@
  * @module utils/fs
  */
 
-import { mkdir, rename, copyFile, unlink, stat, rm } from 'node:fs/promises';
+import { mkdir, rename, copyFile, unlink, stat, rm, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { Result } from '../types';
 import { ok, err } from '../types';
 
@@ -76,4 +77,23 @@ async function removeDirSafe(dirPath: string): Promise<void> {
     }
 }
 
-export { ensureDirectory, moveFile, statFileSafe, removeDirSafe };
+/**
+ * Lists the full paths of the entries in a directory. A missing directory is an empty list.
+ *
+ * @param dirPath - Directory to list
+ * @returns A Result with the entry paths, or an error if the directory exists but cannot be read
+ */
+async function listDirSafe(dirPath: string): Promise<Result<string[]>> {
+    try {
+        const names = await readdir(dirPath);
+        return ok(names.map(name => join(dirPath, name)));
+    } catch (e: unknown) {
+        if (e instanceof Error && (e as NodeJS.ErrnoException).code === 'ENOENT') {
+            return ok([]);
+        }
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(new Error(`Failed to list directory ${dirPath}: ${msg}`));
+    }
+}
+
+export { ensureDirectory, moveFile, statFileSafe, removeDirSafe, listDirSafe };
