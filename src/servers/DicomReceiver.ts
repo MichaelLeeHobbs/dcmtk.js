@@ -19,7 +19,7 @@ import type { Result } from '../types';
 import { ok, err } from '../types';
 import { isSafePath, isValidAETitle } from '../patterns';
 import { createValidationError } from '../tools/_toolError';
-import { ensureDirectory, moveFile, statFileSafe, removeDirSafe } from '../utils';
+import { ensureDirectory, moveFile, statFileSafe, removeDirSafe, listDirSafe } from '../utils';
 import { Dcmrecv } from './Dcmrecv';
 import type { FilenameModeValue, StorageModeValue } from './Dcmrecv';
 import type { AssociationCompleteData } from '../events/dcmrecv';
@@ -46,6 +46,9 @@ const MAX_OUTPUT_LINES_PER_ASSOCIATION = 500;
  * DicomReceiver.scheduleAbortReap}).
  */
 const ABORT_REAP_GRACE_MS = 5_000;
+/** Per-worker budget in stop() for moves, parses and finalizes to finish after dcmrecv exits. */
+const STOP_DRAIN_TIMEOUT_MS = 5_000;
+const MAX_DRAIN_ROUNDS = 1_000;
 
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -277,6 +280,13 @@ const DicomReceiverOptionsSchema = z
 // Internal types
 // ---------------------------------------------------------------------------
 
+/** Peer details dcmrecv reported for an association. */
+interface AssociationPeer {
+    readonly callingAE: string;
+    readonly calledAE: string;
+    readonly source: string;
+}
+
 /** Frozen context for a single association, captured synchronously at connection time. */
 interface AssociationContext {
     readonly associationId: string;
@@ -295,8 +305,15 @@ class Worker {
     readonly tempDir: string;
     private _state: 'idle' | 'busy' | 'finalizing' = 'idle';
     private _context: AssociationContext | undefined;
+    // The pending sets are never cleared between associations: each promise removes itself when it
+    // settles, and clearing early would let stop() delete tempDir under a move it no longer sees.
     private readonly _pending = new Set<Promise<void>>();
     private readonly _instancePending = new Set<Promise<void>>();
+    private readonly _finalizePending = new Set<Promise<void>>();
+    /** Files dcmrecv reported whose move out of tempDir failed; they are still in tempDir on purpose. */
+    private readonly _unmovedFiles = new Set<string>();
+    private _associationPeer: AssociationPeer | undefined;
+    private _stopPromise: Promise<void> | undefined;
     private _instancesReceived = 0;
     private _instanceErrors = 0;
     private _finalized = false;
@@ -346,12 +363,11 @@ class Worker {
         this._files.length = 0;
         this._fileSizes.length = 0;
         this._outputLines.length = 0;
-        this._pending.clear();
-        this._instancePending.clear();
         this._instancesReceived = 0;
         this._instanceErrors = 0;
         this._finalized = false;
         this._associationReceivedEmitted = false;
+        this._associationPeer = undefined;
         this._reapScheduled = false;
     }
 
@@ -381,8 +397,14 @@ class Worker {
     }
 
     /** Records that ASSOCIATION_RECEIVED was emitted to consumers for this association. */
-    markAssociationReceived(): void {
+    markAssociationReceived(peer: AssociationPeer): void {
         this._associationReceivedEmitted = true;
+        this._associationPeer = peer;
+    }
+
+    /** Calling/called AE and source of the current association, once dcmrecv reported it. */
+    get associationPeer(): AssociationPeer | undefined {
+        return this._associationPeer;
     }
 
     /**
@@ -432,8 +454,6 @@ class Worker {
         this._files.length = 0;
         this._fileSizes.length = 0;
         this._outputLines.length = 0;
-        this._pending.clear();
-        this._instancePending.clear();
         this._instancesReceived = 0;
         this._instanceErrors = 0;
         this._remoteSocket = undefined;
@@ -496,6 +516,45 @@ class Worker {
         }
     }
 
+    /** Tracks an in-flight finalizeAssociation; auto-removes on completion. */
+    trackFinalize(promise: Promise<void>): void {
+        this._finalizePending.add(promise);
+        void promise.finally(() => {
+            this._finalizePending.delete(promise);
+        });
+    }
+
+    /** Whether any file move, instance parse or finalize is still in flight. */
+    get hasPendingWork(): boolean {
+        return this._pending.size + this._instancePending.size + this._finalizePending.size > 0;
+    }
+
+    /**
+     * Awaits file moves, instance parses and finalizes until none are left,
+     * including work that starts while earlier work is being awaited.
+     */
+    async drainAll(): Promise<void> {
+        for (let i = 0; i < MAX_DRAIN_ROUNDS && this.hasPendingWork; i++) {
+            await Promise.all([...this._pending, ...this._instancePending, ...this._finalizePending]);
+        }
+    }
+
+    /** Records a reported file that could not be moved out of tempDir. */
+    markUnmoved(filePath: string): void {
+        this._unmovedFiles.add(path.resolve(filePath));
+    }
+
+    /** Whether a file in tempDir was already reported to consumers (its move failed). */
+    isUnmoved(filePath: string): boolean {
+        return this._unmovedFiles.has(path.resolve(filePath));
+    }
+
+    /** Returns the in-flight stop for this worker, starting it with `start` on the first call. */
+    stopOnce(start: () => Promise<void>): Promise<void> {
+        this._stopPromise ??= start();
+        return this._stopPromise;
+    }
+
     /** Appends a line to the output buffer, respecting the cap. */
     captureOutput(text: string): void {
         if (this._outputLines.length < MAX_OUTPUT_LINES_PER_ASSOCIATION) {
@@ -548,6 +607,18 @@ function allocatePort(): Promise<Result<number>> {
 // ---------------------------------------------------------------------------
 
 /** Sums an array of numbers iteratively. */
+function abortSummary(ctx: AssociationContext, peer: AssociationPeer | undefined): AssociationCompleteData {
+    return {
+        associationId: ctx.associationId,
+        callingAE: peer?.callingAE ?? '',
+        calledAE: peer?.calledAE ?? '',
+        source: peer?.source ?? '',
+        files: [],
+        durationMs: Date.now() - ctx.startAt,
+        endReason: 'abort',
+    };
+}
+
 function sumArray(arr: readonly number[]): number {
     let total = 0;
     for (let i = 0; i < arr.length; i++) {
@@ -656,6 +727,13 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
 
     /**
      * Stops the TCP proxy and all workers.
+     *
+     * Open associations are aborted. Before it resolves, every file dcmrecv
+     * stored has been emitted (FILE_RECEIVED, FILE_STORED and, with
+     * `parseInstances`, INSTANCE_RECEIVED or INSTANCE_ERROR), including files
+     * found in a worker's temp folder that dcmrecv never reported. A worker
+     * whose files cannot all be handed over keeps its temp folder and emits an
+     * `error` naming it, so no stored file is deleted.
      */
     async stop(): Promise<void> {
         if (!this.started || this.stopping) {
@@ -667,16 +745,16 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
             this.options.signal.removeEventListener('abort', this.abortHandler);
         }
 
-        await this.closeTcpProxy();
-
-        // Drain in-flight work on busy/finalizing workers before killing processes
-        await this.drainAllWorkers();
+        // server.close() only resolves once every open connection has ended, so it
+        // is awaited after the workers have destroyed their associations.
+        const proxyClosed = this.closeTcpProxy();
 
         const stopPromises: Promise<void>[] = [];
         for (const worker of this.workers.values()) {
             stopPromises.push(this.stopWorker(worker));
         }
         await Promise.all(stopPromises);
+        await proxyClosed;
         this.workers.clear();
 
         this.started = false;
@@ -858,19 +936,6 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
         });
     }
 
-    /** Drains in-flight file and instance work on all non-idle workers, with a 5s safety timeout. */
-    private async drainAllWorkers(): Promise<void> {
-        const drainPromises: Promise<void>[] = [];
-        for (const worker of this.workers.values()) {
-            if (worker.state !== 'idle') {
-                drainPromises.push(worker.drainPendingFiles());
-                drainPromises.push(worker.drainInstancePending());
-            }
-        }
-        if (drainPromises.length === 0) return;
-        await Promise.race([Promise.all(drainPromises), delay(5000)]);
-    }
-
     // -----------------------------------------------------------------------
     // Connection routing
     // -----------------------------------------------------------------------
@@ -895,6 +960,12 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
             worker.release();
             remoteSocket.destroy();
             this.emit('error', { error: mkdirResult.error });
+            return;
+        }
+        if (this.stopping) {
+            worker.release();
+            remoteSocket.destroy();
+            await removeDirSafe(associationDir);
             return;
         }
 
@@ -938,6 +1009,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
 
     /** Returns the first idle worker, or undefined. */
     private getIdleWorker(): Worker | undefined {
+        if (this.stopping) return undefined;
         for (const w of this.workers.values()) {
             if (w.state === 'idle') return w;
         }
@@ -1016,19 +1088,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
             // Remove the directory only if no consumer engaged (no
             // ASSOCIATION_RECEIVED); an engaged consumer owns its own cleanup.
             const removeDir = !worker.associationReceived;
-            void this.finalizeAssociation(
-                worker,
-                {
-                    associationId: ctx.associationId,
-                    callingAE: '',
-                    calledAE: '',
-                    source: '',
-                    files: [],
-                    durationMs: Date.now() - ctx.startAt,
-                    endReason: 'abort',
-                },
-                removeDir
-            );
+            worker.trackFinalize(this.finalizeAssociation(worker, abortSummary(ctx, worker.associationPeer), removeDir));
         }, ABORT_REAP_GRACE_MS);
 
         // Don't keep the event loop alive solely for this fallback timer.
@@ -1095,17 +1155,93 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
         return ok(worker);
     }
 
-    /** Stops a single worker: destroy sockets, stop process, clean temp dir, remove from pool. */
-    private async stopWorker(worker: Worker): Promise<void> {
+    /** Stops a single worker once, however many callers (stop, scale-down) ask. */
+    private stopWorker(worker: Worker): Promise<void> {
+        return worker.stopOnce(() => this.shutdownWorker(worker));
+    }
+
+    /**
+     * Aborts the worker's association, lets dcmrecv exit, hands over every file
+     * it stored, and removes its temp folder only when nothing is left in it.
+     */
+    private async shutdownWorker(worker: Worker): Promise<void> {
         worker.destroySockets();
+        // Resolves on the child's 'close', which Node emits only after its stdout
+        // has ended, so every "Stored received object" line has been parsed.
         await worker.dcmrecv.stop();
+        // A completion parsed during the exit defers its finalize to the check phase.
+        await new Promise<void>(resolve => setImmediate(resolve));
+        const settled = await this.settleWorker(worker);
         worker.dcmrecv[Symbol.dispose]();
-        await removeDirSafe(worker.tempDir);
+        if (settled) {
+            await removeDirSafe(worker.tempDir);
+        }
         this.workers.delete(worker.port);
+    }
+
+    /** Drains, recovers unreported files, finalizes; true when tempDir is empty and safe to remove. */
+    private async settleWorker(worker: Worker): Promise<boolean> {
+        const deadline = Date.now() + STOP_DRAIN_TIMEOUT_MS;
+        if (!(await this.drainBefore(worker, deadline))) {
+            return this.keepTempDir(worker, 'file handling did not finish in time');
+        }
+        await this.recoverUnreportedFiles(worker);
+        const ctx = worker.context;
+        if (ctx !== undefined && worker.state === 'busy' && !worker.finalized) {
+            worker.markFinalizing();
+            worker.trackFinalize(this.finalizeAssociation(worker, abortSummary(ctx, worker.associationPeer), !worker.associationReceived));
+        }
+        if (!(await this.drainBefore(worker, deadline))) {
+            return this.keepTempDir(worker, 'file handling did not finish in time');
+        }
+        const left = await listDirSafe(worker.tempDir);
+        if (!left.ok) return this.keepTempDir(worker, left.error.message);
+        if (left.value.length > 0) return this.keepTempDir(worker, `${String(left.value.length)} file(s) could not be handed over`);
+        return true;
+    }
+
+    /** Waits for the worker's pending work, up to the deadline. Returns false on timeout. */
+    private async drainBefore(worker: Worker, deadline: number): Promise<boolean> {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) return !worker.hasPendingWork;
+        const timer = new AbortController();
+        const timedOut = delay(remaining, true, { signal: timer.signal }).catch(() => false);
+        const finished = await Promise.race([worker.drainAll().then(() => false), timedOut]);
+        timer.abort();
+        return !finished;
+    }
+
+    /**
+     * Hands over files still in tempDir that dcmrecv stored but never reported
+     * (its last stdout was lost when the process was killed), through the same
+     * path as a reported file. Files whose earlier move failed were already
+     * reported and are left in place.
+     */
+    private async recoverUnreportedFiles(worker: Worker): Promise<void> {
+        const listed = await listDirSafe(worker.tempDir);
+        if (!listed.ok) return;
+        const files = listed.value.filter(f => !worker.isUnmoved(f));
+        const ctx = worker.context;
+        if (files.length === 0 || ctx === undefined) return;
+        const peer = worker.associationPeer ?? { callingAE: '', calledAE: '', source: '' };
+        for (const filePath of files) {
+            this.dispatchFileReceived(worker, { filePath, ...peer }, ctx);
+        }
+    }
+
+    /** Emits an error saying the worker's temp folder is kept. Always returns false. */
+    private keepTempDir(worker: Worker, reason: string): false {
+        const ctx = worker.context;
+        this.emit('error', {
+            error: new Error(`DicomReceiver: kept worker temp folder ${worker.tempDir} on stop: ${reason}`),
+            ...(ctx !== undefined ? { associationId: ctx.associationId, associationDir: ctx.associationDir } : {}),
+        });
+        return false;
     }
 
     /** Pre-emptively spawns workers to keep idle count >= minPoolSize. */
     private async replenishPool(): Promise<void> {
+        if (this.stopping) return;
         const status = this.poolStatus;
         const needed = this.minPoolSize - status.idle;
         const capacity = this.maxPoolSize - status.total;
@@ -1171,19 +1307,20 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
                 });
                 return;
             }
-
-            // FILE_RECEIVED: raw notification from dcmrecv, before any processing
-            this.emit('FILE_RECEIVED', {
-                filePath: data.filePath,
-                associationId: ctx.associationId,
-                callingAE: data.callingAE,
-                calledAE: data.calledAE,
-                source: data.source,
-            });
-
-            const promise = this.handleFileReceived(worker, data, ctx);
-            worker.trackFile(promise);
+            this.dispatchFileReceived(worker, data, ctx);
         });
+    }
+
+    /** Emits FILE_RECEIVED and starts the tracked move/parse for one stored file. */
+    private dispatchFileReceived(worker: Worker, data: AssociationPeer & { readonly filePath: string }, ctx: AssociationContext): void {
+        this.emit('FILE_RECEIVED', {
+            filePath: data.filePath,
+            associationId: ctx.associationId,
+            callingAE: data.callingAE,
+            calledAE: data.calledAE,
+            source: data.source,
+        });
+        worker.trackFile(this.handleFileReceived(worker, data, ctx));
     }
 
     /** Moves file to association dir, emits FILE_STORED, then parses instance. */
@@ -1218,6 +1355,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
         const destPath = path.join(ctx.associationDir, path.basename(srcPath));
 
         const moveResult = await moveFile(srcPath, destPath);
+        if (!moveResult.ok) worker.markUnmoved(srcPath);
         const finalPath = moveResult.ok ? destPath : srcPath;
         const fileSize = await statFileSafe(finalPath);
         worker.recordFile(finalPath, fileSize);
@@ -1287,7 +1425,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
             // is owned by the consumer (which may still be processing files).
             const removeDir = !worker.associationReceived;
             setImmediate(() => {
-                void this.finalizeAssociation(worker, data, removeDir);
+                worker.trackFinalize(this.finalizeAssociation(worker, data, removeDir));
             });
         });
     }
@@ -1319,7 +1457,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
         if (removeDir && associationDir !== undefined) {
             await removeDirSafe(associationDir);
         }
-        void this.scaleDown();
+        if (!this.stopping) void this.scaleDown();
     }
 
     /** Emits the ASSOCIATION_COMPLETE event with transfer stats. */
@@ -1383,7 +1521,7 @@ class DicomReceiver extends EventEmitter<DicomReceiverEventMap> {
 
             // Record the hand-off so cleanup knows a consumer engaged with this
             // association (and therefore owns its directory cleanup).
-            worker.markAssociationReceived();
+            worker.markAssociationReceived({ callingAE: data.callingAE, calledAE: data.calledAE, source: data.source });
             this.emit('ASSOCIATION_RECEIVED', {
                 associationId: worker.context?.associationId ?? '',
                 callingAE: data.callingAE,

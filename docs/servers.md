@@ -142,6 +142,21 @@ Remote SCU ──TCP──► DicomReceiver (:4242)
 - Scale-up: after routing a connection, if idle < `minPoolSize` and total < `maxPoolSize`, new workers are spawned
 - Scale-down: after a worker becomes idle, if idle > `minPoolSize + 2`, excess workers are stopped
 
+### Stopping
+
+`stop()` does not wait for senders to finish. It aborts every open association, lets each dcmrecv
+exit, and resolves only after every file dcmrecv stored has been emitted (`FILE_RECEIVED`,
+`FILE_STORED`, and `INSTANCE_RECEIVED`/`INSTANCE_ERROR` when parsing is on) and every open
+association has had its `ASSOCIATION_FINALIZED` (with `endReason: 'abort'` for one that was cut).
+That includes files left in a worker's temp folder that dcmrecv never reported because it was
+killed before its last output line reached Node; those carry the association's AE titles from
+`ASSOCIATION_RECEIVED`, and may arrive after that association's `ASSOCIATION_FINALIZED`.
+
+A file in flight when the association is cut may never have been acknowledged to the sender, so
+the sender can resend it: expect an occasional duplicate, never a loss. If a worker's files cannot
+all be handed over within 5 seconds (or a move fails), the worker's temp folder is **kept** and an
+`error` event names it, rather than deleting stored data.
+
 ### File Storage
 
 ```

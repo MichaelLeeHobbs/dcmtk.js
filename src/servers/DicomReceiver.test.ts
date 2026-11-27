@@ -7,6 +7,7 @@ import type {
     ReceiverInstanceData,
     ReceiverInstanceErrorData,
     ReceiverAssociationData,
+    ReceiverAssociationFinalizedData,
     ReceiverErrorData,
     PoolAssociationReceivedData,
     PoolCStoreRequestData,
@@ -14,6 +15,7 @@ import type {
     PoolRefusingAssociationData,
 } from './DicomReceiver';
 import { Dcmrecv } from './Dcmrecv';
+import * as fsp from 'node:fs/promises';
 
 // ---------------------------------------------------------------------------
 // Mock Dcmrecv — a fake that emits events like the real one
@@ -138,14 +140,24 @@ vi.mock('../dicom/DicomInstance', () => ({
     DicomInstance: { open: mockOpen },
 }));
 
-// Mock fs/promises
+// Mock fs/promises. `workerTempFiles` stands in for the worker temp folders' contents: readdir of a
+// dcmrecv-pool folder lists it, and a rename out of one removes the file from it.
+const { workerTempFiles, baseName } = vi.hoisted(() => ({
+    workerTempFiles: new Set<string>(),
+    baseName: (filePath: string): string => filePath.split(/[\\/]/).pop() ?? filePath,
+}));
+
 vi.mock('node:fs/promises', () => ({
     mkdir: vi.fn(() => Promise.resolve(undefined)),
-    rename: vi.fn(() => Promise.resolve(undefined)),
+    rename: vi.fn((src: string) => {
+        workerTempFiles.delete(baseName(src));
+        return Promise.resolve(undefined);
+    }),
     copyFile: vi.fn(() => Promise.resolve(undefined)),
     unlink: vi.fn(() => Promise.resolve(undefined)),
     rm: vi.fn(() => Promise.resolve(undefined)),
     stat: vi.fn(() => Promise.resolve({ size: 524288 })),
+    readdir: vi.fn((dir: string) => Promise.resolve(dir.includes('dcmrecv-pool') ? [...workerTempFiles] : [])),
 }));
 
 // Mock os.tmpdir
@@ -158,6 +170,7 @@ describe('DicomReceiver', () => {
         createdFakes = [];
         allocatedPortCounter = 50000;
         connectionHandler = undefined;
+        workerTempFiles.clear();
     });
 
     afterEach(() => {
@@ -1294,6 +1307,159 @@ describe('DicomReceiver', () => {
             const result = DicomReceiver.create({ port: 4242, storageDir: '/data' });
             if (!result.ok) return;
             expect(result.value.onRefusingAssociation(vi.fn())).toBe(result.value);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // stop() with an open association (#53)
+    // -----------------------------------------------------------------------
+
+    describe('stop() hands over every file dcmrecv stored (#53)', () => {
+        const PEER = { callingAE: 'SCU1', calledAE: 'DCMRECV', source: '192.168.1.1:5000' };
+
+        async function startBusyReceiver(): Promise<{ receiver: DicomReceiver; worker: FakeDcmrecv; remote: Record<string, unknown> }> {
+            const result = DicomReceiver.create({ port: 4242, storageDir: '/data', minPoolSize: 1, maxPoolSize: 1 });
+            if (!result.ok) throw result.error;
+            const receiver = result.value;
+            await receiver.start();
+            const worker = createdFakes[0];
+            if (worker === undefined || connectionHandler === undefined) throw new Error('receiver did not start');
+            const remote = createMockSocket();
+            connectionHandler(remote);
+            await delay(50);
+            worker.emit('ASSOCIATION_RECEIVED', PEER);
+            return { receiver, worker, remote };
+        }
+
+        function tempDirRemovals(): string[] {
+            return vi
+                .mocked(fsp.rm)
+                .mock.calls.map(call => String(call[0]))
+                .filter(p => p.includes('dcmrecv-pool'));
+        }
+
+        beforeEach(() => {
+            vi.mocked(fsp.rm).mockClear();
+        });
+
+        it('waits for a stored line parsed while dcmrecv exits before removing the temp folder', async () => {
+            const { receiver, worker } = await startBusyReceiver();
+            const order: string[] = [];
+            vi.mocked(fsp.rm).mockImplementation(p => {
+                order.push(`rm ${String(p)}`);
+                return Promise.resolve();
+            });
+            vi.mocked(fsp.rename).mockImplementationOnce(async src => {
+                await delay(30);
+                order.push(`moved ${baseName(String(src))}`);
+            });
+            worker.stop = (): Promise<{ ok: true; value: undefined }> => {
+                worker.stopped = true;
+                worker.emit('FILE_RECEIVED', { filePath: '/tmp/dcmrecv-pool-50001-1/late.dcm', ...PEER });
+                return Promise.resolve({ ok: true, value: undefined });
+            };
+            const stored: ReceiverFileStoredData[] = [];
+            receiver.onFileStored(data => stored.push(data));
+
+            await receiver.stop();
+
+            expect(stored.map(s => baseName(s.filePath))).toEqual(['late.dcm']);
+            const moved = order.indexOf('moved late.dcm');
+            const removed = order.findIndex(o => o.includes('dcmrecv-pool'));
+            expect(moved).toBeGreaterThanOrEqual(0);
+            expect(removed).toBeGreaterThan(moved);
+            vi.mocked(fsp.rm).mockImplementation(() => Promise.resolve());
+        });
+
+        it('hands over a file left in the temp folder that dcmrecv never reported', async () => {
+            const { receiver } = await startBusyReceiver();
+            workerTempFiles.add('unreported.dcm');
+            const received: ReceiverFileReceivedData[] = [];
+            const stored: ReceiverFileStoredData[] = [];
+            const instances: ReceiverInstanceData[] = [];
+            receiver.onFileReceived(data => received.push(data));
+            receiver.onFileStored(data => stored.push(data));
+            receiver.onInstanceReceived(data => instances.push(data));
+
+            await receiver.stop();
+
+            expect(received).toHaveLength(1);
+            expect(received[0]).toMatchObject({ associationId: 'assoc-1', ...PEER });
+            expect(stored.map(s => baseName(s.filePath))).toEqual(['unreported.dcm']);
+            expect(stored[0]?.associationDir).toContain('assoc-1');
+            expect(instances).toHaveLength(1);
+            expect(tempDirRemovals()).toHaveLength(1);
+        });
+
+        it('aborts the open association first and finalizes it as an abort', async () => {
+            const { receiver, worker, remote } = await startBusyReceiver();
+            let destroyedBeforeStop = false;
+            worker.stop = (): Promise<{ ok: true; value: undefined }> => {
+                destroyedBeforeStop = vi.mocked(remote.destroy as () => void).mock.calls.length > 0;
+                worker.stopped = true;
+                return Promise.resolve({ ok: true, value: undefined });
+            };
+            const finalized: ReceiverAssociationFinalizedData[] = [];
+            receiver.onAssociationFinalized(data => finalized.push(data));
+
+            await receiver.stop();
+
+            expect(destroyedBeforeStop).toBe(true);
+            expect(finalized).toHaveLength(1);
+            expect(finalized[0]).toMatchObject({ associationId: 'assoc-1', endReason: 'abort', ...PEER });
+        });
+
+        it('keeps the temp folder and emits an error when a stored file cannot be moved out', async () => {
+            const { receiver } = await startBusyReceiver();
+            workerTempFiles.add('stuck.dcm');
+            vi.mocked(fsp.rename).mockRejectedValueOnce(new Error('EACCES'));
+            vi.mocked(fsp.copyFile).mockRejectedValueOnce(new Error('EACCES'));
+            const stored: ReceiverFileStoredData[] = [];
+            const errors: ReceiverErrorData[] = [];
+            receiver.onFileStored(data => stored.push(data));
+            receiver.onEvent('error', data => errors.push(data));
+
+            await receiver.stop();
+
+            expect(stored).toHaveLength(1);
+            expect(errors.map(e => e.error.message)).toEqual([expect.stringMatching(/kept worker temp folder .* 1 file\(s\) could not be handed over/)]);
+            expect(errors[0]?.associationId).toBe('assoc-1');
+            expect(tempDirRemovals()).toHaveLength(0);
+        });
+
+        it('keeps the temp folder when the folder cannot be listed', async () => {
+            const { receiver } = await startBusyReceiver();
+            vi.mocked(fsp.readdir).mockRejectedValue(Object.assign(new Error('EIO'), { code: 'EIO' }));
+            const errors: ReceiverErrorData[] = [];
+            receiver.onEvent('error', data => errors.push(data));
+
+            await receiver.stop();
+            vi.mocked(fsp.readdir).mockReset();
+            vi.mocked(fsp.readdir).mockImplementation(((dir: string) =>
+                Promise.resolve(dir.includes('dcmrecv-pool') ? [...workerTempFiles] : [])) as unknown as typeof fsp.readdir);
+
+            expect(errors.map(e => e.error.message)).toEqual([expect.stringMatching(/kept worker temp folder .*Failed to list directory/)]);
+            expect(tempDirRemovals()).toHaveLength(0);
+        });
+
+        it('keeps the temp folder when file handling outlasts the stop budget', async () => {
+            const { receiver, worker } = await startBusyReceiver();
+            vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] });
+            try {
+                vi.mocked(fsp.rename).mockImplementationOnce(() => new Promise(() => undefined));
+                worker.emit('FILE_RECEIVED', { filePath: '/tmp/dcmrecv-pool-50001-1/hung.dcm', ...PEER });
+                const errors: ReceiverErrorData[] = [];
+                receiver.onEvent('error', data => errors.push(data));
+
+                const stopping = receiver.stop();
+                await vi.advanceTimersByTimeAsync(6_000);
+                await stopping;
+
+                expect(errors.map(e => e.error.message)).toEqual([expect.stringMatching(/did not finish in time/)]);
+                expect(tempDirRemovals()).toHaveLength(0);
+            } finally {
+                vi.useRealTimers();
+            }
         });
     });
 });

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`DicomReceiver.stop()` no longer deletes files dcmrecv already acknowledged**
+  ([#53](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/53)). `stop()` removed each
+  worker's temp folder right after killing dcmrecv, so a file whose `Stored received object`
+  line had not yet been parsed, or whose move was still running, was deleted after the sender
+  got a success response. `stop()` now aborts open associations, waits for dcmrecv to exit and
+  for all its output to be parsed, drains every move and parse (including ones that start
+  during the drain), hands over any file still in the temp folder that dcmrecv never reported,
+  finalizes cut associations with `endReason: 'abort'`, and only then removes the folder. If
+  that cannot finish within 5 seconds, or a file cannot be moved out, the folder is kept and
+  an `error` event names it.
+- **`DicomReceiver.stop()` now cuts open associations instead of waiting for them.** It
+  awaited the TCP proxy's `close()`, which Node resolves only when every open connection has
+  ended, so `stop()` blocked until each sender finished on its own. Senders mid-association
+  now see an abort; see [Stopping](docs/servers.md#stopping).
+
 ## [1.0.0-rc.7] - 2026-11-02
 
 ### Security
