@@ -5,6 +5,7 @@ import { REQUIRED_BINARIES, WINDOWS_SEARCH_PATHS, UNIX_SEARCH_PATHS } from './co
 
 vi.mock('node:fs', () => ({
     existsSync: vi.fn(),
+    readdirSync: vi.fn(),
 }));
 
 vi.mock('node:child_process', () => ({
@@ -17,6 +18,7 @@ const cp = await import('node:child_process');
 
 const mockExistsSync = vi.mocked(fs.existsSync);
 const mockExecSync = vi.mocked(cp.execSync);
+const mockReaddirSync = vi.mocked(fs.readdirSync);
 
 const isWindows = process.platform === 'win32';
 const searchPaths = isWindows ? WINDOWS_SEARCH_PATHS : UNIX_SEARCH_PATHS;
@@ -142,6 +144,72 @@ describe('findDcmtkPath', () => {
 
             expect(result.ok).toBe(true);
             if (result.ok) expect(result.value).toBe('/second/path');
+        });
+    });
+
+    // Chocolatey's bin holds shims that run the real exe as a grandchild, which outlives kills (#56).
+    describe('Chocolatey shim folder', () => {
+        const root = 'C:\\choco';
+        const tools = `${root}\\lib\\dcmtk\\tools`;
+
+        beforeEach(() => {
+            process.env['ChocolateyInstall'] = root;
+            process.env['DCMTK_PATH'] = `${root}\\bin`;
+        });
+
+        it('resolves to the newest package bin folder instead of the shims', () => {
+            mockExistsSync.mockReturnValue(true);
+            mockReaddirSync.mockReturnValue(['dcmtk-3.6.9-win64-chocolatey', 'dcmtk-3.7.0-win64-chocolatey'] as never);
+
+            const result = findDcmtkPath({ noCache: true });
+
+            expect(result.ok).toBe(true);
+            if (result.ok) expect(result.value).toBe(`${tools}\\dcmtk-3.7.0-win64-chocolatey\\bin`);
+        });
+
+        it('skips package folders that lack the required binaries', () => {
+            mockExistsSync.mockImplementation((p: unknown) => !String(p).includes('3.7.0'));
+            mockReaddirSync.mockReturnValue(['dcmtk-3.6.9-win64-chocolatey', 'dcmtk-3.7.0-win64-chocolatey'] as never);
+
+            const result = findDcmtkPath({ noCache: true });
+
+            expect(result.ok).toBe(true);
+            if (result.ok) expect(result.value).toBe(`${tools}\\dcmtk-3.6.9-win64-chocolatey\\bin`);
+        });
+
+        it('keeps the shim folder when the package folder is missing', () => {
+            mockExistsSync.mockReturnValue(true);
+            mockReaddirSync.mockImplementation(() => {
+                throw new Error('ENOENT');
+            });
+
+            const result = findDcmtkPath({ noCache: true });
+
+            expect(result.ok).toBe(true);
+            if (result.ok) expect(result.value).toBe(`${root}\\bin`);
+        });
+
+        it('uses the default Chocolatey root when ChocolateyInstall is unset', () => {
+            delete process.env['ChocolateyInstall'];
+            process.env['DCMTK_PATH'] = 'C:\\ProgramData\\chocolatey\\bin';
+            mockExistsSync.mockReturnValue(true);
+            mockReaddirSync.mockReturnValue(['dcmtk-3.7.0-win64-chocolatey'] as never);
+
+            const result = findDcmtkPath({ noCache: true });
+
+            expect(result.ok).toBe(true);
+            if (result.ok) expect(result.value).toBe('C:\\ProgramData\\chocolatey\\lib\\dcmtk\\tools\\dcmtk-3.7.0-win64-chocolatey\\bin');
+        });
+
+        it('leaves other folders alone', () => {
+            process.env['DCMTK_PATH'] = 'C:\\Program Files\\DCMTK\\bin';
+            mockExistsSync.mockReturnValue(true);
+
+            const result = findDcmtkPath({ noCache: true });
+
+            expect(result.ok).toBe(true);
+            if (result.ok) expect(result.value).toBe('C:\\Program Files\\DCMTK\\bin');
+            expect(mockReaddirSync).not.toHaveBeenCalled();
         });
     });
 });

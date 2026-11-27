@@ -9,8 +9,8 @@
  * @module findDcmtkPath
  */
 
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync } from 'node:fs';
+import { join, win32 } from 'node:path';
 import { execSync } from 'node:child_process';
 import type { Result } from './types';
 import { ok, err } from './types';
@@ -21,6 +21,34 @@ import { isSafePath } from './patterns';
 let cachedPath: string | undefined;
 
 const isWindows = process.platform === 'win32';
+
+const DEFAULT_CHOCOLATEY_ROOT = 'C:\\ProgramData\\chocolatey';
+
+/**
+ * Maps Chocolatey's shim folder to the real DCMTK `bin` folder its shims launch; any other folder is returned unchanged.
+ *
+ * `%ChocolateyInstall%\bin` holds launchers that start the real binary as their own child process, so killing a shim,
+ * or the Node process outliving it, leaves the real DCMTK process running (#56). Falls back to the shim folder when
+ * no package folder with the required binaries exists.
+ */
+function resolveChocolateyShims(dir: string): string {
+    const envRoot = process.env['ChocolateyInstall'];
+    const root = envRoot !== undefined && envRoot.length > 0 ? envRoot : DEFAULT_CHOCOLATEY_ROOT;
+    if (win32.resolve(dir).toLowerCase() !== win32.resolve(root, 'bin').toLowerCase()) return dir;
+    const toolsDir = win32.join(root, 'lib', 'dcmtk', 'tools');
+    let entries: string[];
+    try {
+        entries = readdirSync(toolsDir);
+    } catch {
+        return dir;
+    }
+    const newestFirst = [...entries].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+    for (const entry of newestFirst) {
+        const candidate = win32.join(toolsDir, entry, 'bin');
+        if (hasRequiredBinaries(candidate)) return candidate;
+    }
+    return dir;
+}
 
 /**
  * Returns the binary filename with platform-appropriate extension.
@@ -87,7 +115,7 @@ function searchEnvPath(): Result<string> | undefined {
         return err(new Error(`DCMTK_PATH="${envPath}" contains path traversal sequences`));
     }
     if (hasRequiredBinaries(envPath)) {
-        return ok(envPath);
+        return ok(resolveChocolateyShims(envPath));
     }
     return err(new Error(`DCMTK_PATH="${envPath}" is set but required binaries are missing`));
 }
@@ -102,7 +130,7 @@ function searchKnownPaths(): string | undefined {
     const searchPaths = isWindows ? WINDOWS_SEARCH_PATHS : UNIX_SEARCH_PATHS;
     for (const candidate of searchPaths) {
         if (hasRequiredBinaries(candidate)) {
-            return candidate;
+            return resolveChocolateyShims(candidate);
         }
     }
     return undefined;
@@ -117,7 +145,7 @@ function searchSystemPath(): string | undefined {
     /* v8 ignore next -- fallback never used since REQUIRED_BINARIES is non-empty */
     const systemDir = findViaSystemPath(REQUIRED_BINARIES[0] ?? 'dcm2json');
     if (systemDir !== undefined && hasRequiredBinaries(systemDir)) {
-        return systemDir;
+        return resolveChocolateyShims(systemDir);
     }
     return undefined;
 }
@@ -137,6 +165,9 @@ interface FindDcmtkPathOptions {
  * 1. `DCMTK_PATH` environment variable (if set)
  * 2. Platform-specific known install locations
  * 3. System PATH lookup via `which`/`where`
+ *
+ * On Windows, a hit in Chocolatey's shim folder (`C:\ProgramData\chocolatey\bin`) is replaced by the real
+ * `lib\dcmtk\tools\<version>\bin` folder behind it, so DCMTK processes are not grandchildren that outlive a kill.
  *
  * The result is cached after the first successful call. Pass `{ noCache: true }`
  * to force a fresh search.
