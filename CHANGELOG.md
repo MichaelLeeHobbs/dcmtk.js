@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0-rc.9] - 2026-11-27
+
 ### Fixed
 
 - **DCMTK processes no longer outlive a stop, an abort or their host on Windows**
