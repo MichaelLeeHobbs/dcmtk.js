@@ -36,10 +36,26 @@ jobs:
             - run: pnpm install --frozen-lockfile
             - run: pnpm run test:all
 
+    # Chocolatey installs DCMTK behind launcher shims, the layout that orphaned DCMTK processes on Windows (#56).
+    test-windows:
+        name: Test (Windows, Chocolatey DCMTK 3.7.0)
+        runs-on: windows-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+                  cache: pnpm
+            - run: choco install dcmtk --version=3.7.0 -y --no-progress
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm run test
+            - run: pnpm exec vitest run --config vitest.integration.config.ts test/integration/servers/no-orphans.integration.test.ts
+
     build:
         name: Build
         runs-on: ubuntu-latest
-        needs: [lint-and-typecheck, test]
+        needs: [lint-and-typecheck, test, test-windows]
         steps:
             - uses: actions/checkout@v7
             - uses: pnpm/action-setup@v6

@@ -13,9 +13,9 @@ import { EventEmitter } from 'node:events';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { stderr } from 'stderr-lib';
-import kill from 'tree-kill';
 import type { Result, LineSource } from './types';
 import { ok, err } from './types';
+import { killTree } from './killTree';
 import { DEFAULT_START_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS, MAX_OUTPUT_BYTES } from './constants';
 
 // ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
                 if (settled) return;
                 settled = true;
                 this.state = ProcessState.STOPPED;
-                this.killChild();
+                void this.killChild();
                 resolve(err(new Error(`Process failed to start within ${timeoutMs}ms`)));
             }, timeoutMs);
 
@@ -182,11 +182,25 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
         const drainMs = this.config.drainTimeoutMs ?? DEFAULT_DRAIN_TIMEOUT_MS;
 
         return new Promise<void>(resolve => {
-            /* v8 ignore next 4 -- drain timeout is a safety net for unresponsive processes */
-            const timer = setTimeout(() => {
-                this.killChild();
+            const finish = (): void => {
                 this.state = ProcessState.STOPPED;
                 resolve();
+            };
+            const timer = setTimeout(() => {
+                const child = this.child;
+                if (child !== null && child.exitCode === null && child.signalCode === null) {
+                    void this.killChild().then(result => {
+                        this.reportKillFailure(result);
+                        finish();
+                    });
+                    return;
+                }
+                // The root exited but 'close' never came: a process it started still holds the stdio pipes, and
+                // no tree kill can reach it from a dead root.
+                this.reportKillFailure(
+                    err(new Error(`process exited but its output stayed open for ${String(drainMs)}ms; a process it started may still be running`))
+                );
+                finish();
             }, drainMs);
 
             // Safe: Node.js is single-threaded, so `this.child` cannot become null
@@ -199,7 +213,7 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
                     this.state = ProcessState.STOPPED;
                     resolve();
                 });
-                this.killChild();
+                void this.killChild().then(result => this.reportKillFailure(result));
                 /* v8 ignore start -- edge case: state is RUNNING but child is already null */
             } else {
                 clearTimeout(timer);
@@ -215,7 +229,7 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
      */
     [Symbol.dispose](): void {
         if (this.child) {
-            this.killChild();
+            void this.killChild();
             this.child = null;
         }
         this.state = ProcessState.STOPPED;
@@ -226,15 +240,19 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
     // Private helpers
     // -----------------------------------------------------------------------
 
-    private killChild(): void {
-        if (this.child?.pid !== undefined && this.child.pid !== null) {
-            try {
-                kill(this.child.pid);
-                /* v8 ignore next */
-            } catch {
-                // Process may already be dead
-            }
-        }
+    private killChild(): Promise<Result<void>> {
+        const pid = this.child?.pid;
+        if (pid === undefined) return Promise.resolve(ok(undefined));
+        return killTree(pid);
+    }
+
+    /**
+     * Surfaces a failed tree kill as a non-fatal error, since it may have left a DCMTK process running.
+     * The listener check matters: `[Symbol.dispose]` removes every listener, and emitting 'error' with none throws.
+     */
+    private reportKillFailure(result: Result<void>): void {
+        if (result.ok || this.listenerCount('error') === 0) return;
+        this.emit('error', { error: new Error(`Failed to kill process tree: ${result.error.message}`), fatal: false });
     }
 
     /**
@@ -305,7 +323,7 @@ class DcmtkProcess extends EventEmitter<DcmtkProcessEventMap> {
 
         if (this.stdoutBuffer.length + this.stderrBuffer.length > MAX_OUTPUT_BYTES) {
             this.emit('error', { error: new Error(`Process output exceeded ${MAX_OUTPUT_BYTES} bytes`), fatal: true });
-            this.killChild();
+            void this.killChild();
             return;
         }
 

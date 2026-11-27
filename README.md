@@ -28,7 +28,7 @@ Type-safe Node.js bindings for the [DCMTK](https://dicom.offis.de/dcmtk.php.en) 
 ## Prerequisites
 
 - **Node.js** >= 20
-- **DCMTK** installed on the system — set the `DCMTK_PATH` environment variable or install to a standard location (`/usr/bin`, `/usr/local/bin`, `C:\Program Files\DCMTK`). Pre-built Docker images with Node.js + DCMTK are available: [`michaelleehobbs/nodejs-dcmtk`](https://hub.docker.com/r/michaelleehobbs/nodejs-dcmtk)
+- **DCMTK** installed on the system — set the `DCMTK_PATH` environment variable or install to a standard location (`/usr/bin`, `/usr/local/bin`, `C:\Program Files\DCMTK`, or Chocolatey's `choco install dcmtk`). With Chocolatey, the library runs the real binaries under `C:\ProgramData\chocolatey\lib\dcmtk\tools\<version>\bin`, not the launcher shims in `chocolatey\bin`, which would leave DCMTK processes running after a stop. Pre-built Docker images with Node.js + DCMTK are available: [`michaelleehobbs/nodejs-dcmtk`](https://hub.docker.com/r/michaelleehobbs/nodejs-dcmtk)
 
 ## Installation
 

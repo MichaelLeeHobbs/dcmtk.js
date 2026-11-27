@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { execCommand, spawnCommand } from './exec';
 
 // These tests use real child processes with safe, cross-platform commands.
@@ -140,4 +143,78 @@ describe('spawnCommand()', () => {
         // Should fail due to abort
         expect(result.ok).toBe(false);
     });
+
+    it('does not spawn when the signal is already aborted', async () => {
+        const controller = new AbortController();
+        controller.abort();
+
+        const result = await spawnCommand(process.execPath, ['-e', 'setTimeout(()=>{},30000)'], { signal: controller.signal });
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error.message).toMatch(/aborted before it started/);
+    });
+
+    // Windows only: tree-kill finds descendants with `ps --ppid`, which BusyBox (the Alpine CI image) rejects, and the
+    // grandchild layout is a Windows launcher problem; on Linux DCMTK runs as a direct child.
+    it.skipIf(!isWindows)('kills the grandchild on abort, as with a Chocolatey shim running the real binary (#56)', async () => {
+        const pidFile = join(mkdtempSync(join(tmpdir(), 'exec-tree-')), 'grandchild.pid');
+        const controller = new AbortController();
+        const running = spawnCommand(process.execPath, ['-e', LAUNCHER_SCRIPT, pidFile], { timeoutMs: 30_000, signal: controller.signal });
+        const grandchild = await waitForPidFile(pidFile);
+        try {
+            controller.abort();
+            const result = await running;
+
+            expect(result.ok).toBe(false);
+            if (!result.ok) expect(result.error.message).toMatch(/aborted/);
+            expect(await waitUntilGone(grandchild)).toBe(true);
+        } finally {
+            killQuietly(grandchild);
+        }
+    });
 });
+
+// `detached` keeps the grandchild out of the launcher's libuv job object, so it survives the launcher dying
+// exactly like the real exe behind a Chocolatey shim. Only a process-tree kill reaches it.
+const LAUNCHER_SCRIPT = [
+    "const { spawn } = require('node:child_process');",
+    "const c = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { detached: true, stdio: 'ignore' });",
+    "require('node:fs').writeFileSync(process.argv[1], String(c.pid));",
+    'setInterval(() => {}, 1000);',
+].join('\n');
+
+function isAlive(pid: number): boolean {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function killQuietly(pid: number): void {
+    try {
+        process.kill(pid);
+    } catch {
+        // Already gone
+    }
+}
+
+async function waitForPidFile(path: string): Promise<number> {
+    for (let i = 0; i < 100; i++) {
+        if (existsSync(path)) {
+            const pid = Number(readFileSync(path, 'utf8'));
+            if (pid > 0) return pid;
+        }
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    throw new Error(`launcher never wrote ${path}`);
+}
+
+async function waitUntilGone(pid: number): Promise<boolean> {
+    for (let i = 0; i < 60; i++) {
+        if (!isAlive(pid)) return true;
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    return false;
+}

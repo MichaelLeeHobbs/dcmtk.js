@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **DCMTK processes no longer outlive a stop, an abort or their host on Windows**
+  ([#56](https://github.com/MichaelLeeHobbs/dcmtk.js/issues/56)). `findDcmtkPath()` picked
+  Chocolatey's `bin` folder, whose files are shims that start the real binary as their own
+  child. Killing the shim, or the Node process exiting, left the real `storescp`, `dcmrecv` or
+  `dcmsend` running and holding its port. `findDcmtkPath()` now returns the real
+  `lib\dcmtk\tools\<version>\bin` folder behind the shims (newest version first; the shim
+  folder is kept only if no package folder is found), including when `DCMTK_PATH` points at
+  the shim folder.
+- **An aborted tool call kills the whole process tree.** `execCommand()` and `spawnCommand()`
+  handed the `signal` to Node's `spawn()`, which kills only the direct child, so
+  `DicomSend.stop()` and `DicomSender.stop()` could orphan a send in flight behind any
+  launcher. Abort and timeout now kill the tree and resolve once the kill has finished; an
+  already-aborted signal returns an error without spawning.
+- **A failed kill is reported.** `DcmtkProcess.stop()` emits a non-fatal `error` event when
+  killing the process tree fails. When the process does not close within `drainTimeoutMs`, it
+  kills again and waits for that kill if the process is still running, or reports that a
+  process it started still holds its output if it already exited.
+
+### Changed
+
+- A timed-out or aborted tool call now resolves after its process tree is killed, so it can
+  take up to 10 s longer than `timeoutMs` (the cap on the kill). The same applies to
+  `DcmtkProcess.stop()` after `drainTimeoutMs`.
+- Abort error messages changed from `<binary> error: The operation was aborted` to
+  `<binary> aborted (pid: N)`, or `<binary> aborted before it started` for a signal that was
+  already aborted. On Windows, `<binary>` in tool error messages is now the file name rather
+  than the full path.
+
 ## [1.0.0-rc.8] - 2026-11-27
 
 ### Fixed
